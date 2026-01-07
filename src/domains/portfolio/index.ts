@@ -59,8 +59,8 @@ const WEB_GET_PORTFOLIO = /* GraphQL */ `
 `;
 
 const WEB_GET_ALLOCATION = /* GraphQL */ `
-  query Web_GetAllocation($porfolioInput: PortfolioInput!) {
-    portfolio(portfolioInput: $porfolioInput) {
+  query Web_GetAllocation($portfolioInput: PortfolioInput!) {
+    portfolio(portfolioInput: $portfolioInput) {
       allocationSimple
       performance
       __typename
@@ -112,7 +112,7 @@ export class PortfolioClient {
   }
 
   async getAllocation(portfolioInput: Record<string, unknown>): Promise<AllocationResponse> {
-    const data = await this.graphql.query<AllocationResponse>(WEB_GET_ALLOCATION, { porfolioInput: portfolioInput });
+    const data = await this.graphql.query<AllocationResponse>(WEB_GET_ALLOCATION, { portfolioInput });
     return data;
   }
 

@@ -135,7 +135,14 @@ export class AuthService {
       }
       return parsed;
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+      if (
+        (err instanceof Error && err.message === 'invalid session file') ||
+        err instanceof SyntaxError ||
+        (err as NodeJS.ErrnoException).code === 'ENOENT'
+      ) {
+        await this.invalidateSession();
+        return undefined;
+      }
       throw new AuthError('Failed to load session', err);
     }
   }

@@ -14,7 +14,7 @@
     "dev": "tsc -p tsconfig.json --watch",
     "test": "npm run test:unit",
     "test:unit": "tsx --test test/**/*.ts",
-    "lint": "tsc -p tsconfig.json --noEmit",
+    "lint": "node scripts/lint.js",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "type-check": "tsc -p tsconfig.json --noEmit",
     "clean": "rm -rf dist",

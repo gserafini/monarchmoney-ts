@@ -33,6 +33,7 @@ export interface AccountsPageResponse {
     isAsset: boolean;
     totalDisplayBalance: number;
   }>;
+  householdPreferences?: { id: string; accountGroupOrder?: unknown; collaborationToolsEnabled?: boolean };
 }
 
 export interface AccountsFilters {
@@ -42,10 +43,7 @@ export interface AccountsFilters {
 function buildAccountFilters(filters?: AccountsFilters): Record<string, unknown> | undefined {
   if (!filters) return undefined;
   const out: Record<string, unknown> = {};
-  // The capture does not show a hide flag; keep client-side filtering hint.
-  if (filters.includeHidden === false) {
-    out.includeHidden = false;
-  }
+  if (filters.includeHidden !== undefined) out.includeHidden = filters.includeHidden;
   return Object.keys(out).length ? out : undefined;
 }
 
@@ -165,7 +163,7 @@ export class AccountsClient {
   constructor(private graphql: GraphQLClient) {}
 
   async list(filters?: AccountsFilters): Promise<AccountsPageResponse> {
-    const data = await this.graphql.query<{ hasAccounts: boolean; accountTypeSummaries: AccountsPageResponse['accountTypeSummaries'] }>(
+    const data = await this.graphql.query<AccountsPageResponse>(
       WEB_GET_ACCOUNTS_PAGE,
       { filters: buildAccountFilters(filters) }
     );

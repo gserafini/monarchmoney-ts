@@ -166,7 +166,7 @@ export class MessagingClient {
   }
 
   async createThread(params?: { shouldOmitWelcomeMessage?: boolean; agentType?: string }): Promise<MessageThread | undefined> {
-    const data = await this.graphql.query<{ createMessageThread: { messageThread?: MessageThread } }>(
+    const data = await this.graphql.mutate<{ createMessageThread: { messageThread?: MessageThread } }>(
       COMMON_CREATE_THREAD_MUTATION,
       { shouldOmitWelcomeMessage: params?.shouldOmitWelcomeMessage, agentType: params?.agentType }
     );
@@ -174,7 +174,7 @@ export class MessagingClient {
   }
 
   async sendMessage(input: Record<string, unknown>): Promise<MessageThread | undefined> {
-    const data = await this.graphql.query<{ sendMessage: { messageThread?: MessageThread } }>(
+    const data = await this.graphql.mutate<{ sendMessage: { messageThread?: MessageThread } }>(
       COMMON_SEND_MESSAGE,
       { input }
     );

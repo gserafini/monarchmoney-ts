@@ -64,16 +64,17 @@ export class GraphQLClient {
     }
 
     const body = { query, variables: variables ?? {}, operationName: null };
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), opts.timeoutMs ?? 30000);
 
     const attempt = async (): Promise<T> => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), opts.timeoutMs ?? 30000);
       const res = await fetch(this.baseURL, {
         method: 'POST',
         headers: this.buildHeaders(session),
         body: JSON.stringify(body),
         signal: controller.signal,
       });
+      clearTimeout(timeout);
 
       if (!res.ok) {
         throw normalizeHTTPError(res.status, await res.text());
@@ -101,7 +102,6 @@ export class GraphQLClient {
       }
       throw err as Error;
     } finally {
-      clearTimeout(timeout);
       this.lastRequestTime = Date.now();
     }
   }
