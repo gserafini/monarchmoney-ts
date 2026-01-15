@@ -11,7 +11,8 @@ import { RecurringAPIImpl } from '../api/recurring'
 import { InstitutionsAPIImpl } from '../api/institutions'
 import { InsightsAPIImpl } from '../api/insights'
 import { InvestmentsAPIImpl } from '../api/investments'
-import { 
+import { ReportsAPIImpl } from '../api/reports'
+import {
   getEnvironmentVariable,
   logger,
   deepMerge
@@ -68,6 +69,7 @@ export class MonarchClient {
   public institutions: InstitutionsAPIImpl
   public insights: InsightsAPIImpl
   public investments: InvestmentsAPIImpl
+  public reports: ReportsAPIImpl
 
   constructor(config: MonarchConfig = {}) {
     // Merge with defaults and environment variables
@@ -109,6 +111,7 @@ export class MonarchClient {
     this.institutions = new InstitutionsAPIImpl(this.graphql)
     this.insights = new InsightsAPIImpl(this.graphql)
     this.investments = new InvestmentsAPIImpl(this.graphql)
+    this.reports = new ReportsAPIImpl(this.graphql)
 
     logger.info('MonarchClient initialized', {
       baseURL: this.config.baseURL,
