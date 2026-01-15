@@ -105,35 +105,69 @@ export class ReportsAPIImpl implements ReportsAPI {
       const response = await this.graphql.query<{
         reportConfigurations: Array<{
           id: string
-          name: string
-          type: string
-          startDate: string
-          endDate: string
-          datePreset: string
-          filters: {
-            accountIds?: string[]
-            categoryIds?: string[]
-            tagIds?: string[]
+          displayName: string
+          transactionFilterSet: {
+            id: string
+            displayName: string
+            categories?: Array<{ id: string; name: string }>
+            categoryGroups?: Array<{ id: string; name: string; type: string }>
+            accounts?: Array<{ id: string; displayName: string }>
+            merchants?: Array<{ id: string; name: string }>
+            tags?: Array<{ id: string; name: string }>
+            startDate?: string
+            endDate?: string
           }
-          groupBy: string
-          includeSubcategories: boolean
+          reportView: {
+            analysisScope: string
+            chartType: string
+            chartCalculation: string
+            chartLayout: string
+            chartDensity: string
+            dimensions: string[]
+            timeframe: string
+          }
         }>
       }>(
         `query Web_GetReportConfigurations {
           reportConfigurations {
             id
-            name
-            type
-            startDate
-            endDate
-            datePreset
-            filters {
-              accountIds
-              categoryIds
-              tagIds
+            displayName
+            transactionFilterSet {
+              id
+              displayName
+              categories {
+                id
+                name
+              }
+              categoryGroups {
+                id
+                name
+                type
+              }
+              accounts {
+                id
+                displayName
+              }
+              merchants {
+                id
+                name
+              }
+              tags {
+                id
+                name
+              }
+              startDate
+              endDate
             }
-            groupBy
-            includeSubcategories
+            reportView {
+              analysisScope
+              chartType
+              chartCalculation
+              chartLayout
+              chartDensity
+              dimensions
+              timeframe
+            }
           }
         }`,
         {},
@@ -142,20 +176,20 @@ export class ReportsAPIImpl implements ReportsAPI {
 
       return (response.reportConfigurations ?? []).map(config => ({
         id: config.id,
-        name: config.name,
-        type: config.type as ReportConfiguration['type'],
+        name: config.displayName,
+        type: 'custom' as ReportConfiguration['type'],
         dateRange: {
-          startDate: config.startDate,
-          endDate: config.endDate,
-          preset: config.datePreset,
+          startDate: config.transactionFilterSet?.startDate || '',
+          endDate: config.transactionFilterSet?.endDate || '',
+          preset: config.reportView?.timeframe,
         },
         filters: {
-          accounts: config.filters?.accountIds,
-          categories: config.filters?.categoryIds,
-          tags: config.filters?.tagIds,
+          accounts: config.transactionFilterSet?.accounts?.map(a => a.id),
+          categories: config.transactionFilterSet?.categories?.map(c => c.id),
+          tags: config.transactionFilterSet?.tags?.map(t => t.id),
         },
-        groupBy: config.groupBy as ReportConfiguration['groupBy'],
-        includeSubcategories: config.includeSubcategories,
+        groupBy: (config.reportView?.dimensions?.[0] || 'category') as ReportConfiguration['groupBy'],
+        includeSubcategories: true,
       }))
     } catch (error) {
       logger.error('Failed to fetch report configurations', error)
@@ -174,70 +208,175 @@ export class ReportsAPIImpl implements ReportsAPI {
     const startDate = config.dateRange?.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     const endDate = config.dateRange?.endDate || new Date().toISOString().split('T')[0]
 
+    // Validate date range
+    validateDateRange(startDate, endDate)
+
+    // Determine groupBy based on config
+    const groupBy: string[] = []
+    if (config.groupBy === 'category') {
+      groupBy.push('category')
+    } else if (config.groupBy === 'merchant') {
+      groupBy.push('merchant')
+    } else if (config.groupBy === 'account') {
+      groupBy.push('account')
+    } else {
+      groupBy.push('category') // default
+    }
+
+    // Build dynamic groupBy fields based on what we're grouping by
+    const includeCategory = config.groupBy === 'category' || !config.groupBy
+    const includeMerchant = config.groupBy === 'merchant'
+
     try {
       const response = await this.graphql.query<{
-        reportsData: {
-          summary: {
-            total: number
-            average: number
-            transactionCount: number
+        reports: Array<{
+          groupBy: {
+            date?: string
+            category?: {
+              id: string
+              name: string
+              icon: string
+              group?: { id: string; name: string; type: string }
+            }
+            merchant?: {
+              id: string
+              name: string
+            }
           }
-          breakdown: Array<{
-            name: string
-            amount: number
-            percentage: number
+          summary: {
+            sum: number
+            avg: number
             count: number
-          }>
-          timeSeries: Array<{
-            date: string
-            amount: number
-          }>
+            max: number
+            sumIncome: number
+            sumExpense: number
+            savings: number
+            savingsRate: number
+            first: string
+            last: string
+          }
+        }>
+        aggregates: {
+          summary: {
+            sum: number
+            avg: number
+            count: number
+            max: number
+            sumIncome: number
+            sumExpense: number
+            savings: number
+            savingsRate: number
+            first: string
+            last: string
+          }
         }
       }>(
         `query Common_GetReportsData(
-          $startDate: Date!
-          $endDate: Date!
-          $type: String
-          $groupBy: String
-          $accountIds: [ID]
-          $categoryIds: [ID]
+          $filters: TransactionFilterInput!
+          $groupBy: [ReportsGroupByEntity!]
+          $groupByTimeframe: ReportsGroupByTimeframe
+          $fillEmptyValues: Boolean = true
+          $includeCategory: Boolean = false
+          $includeMerchant: Boolean = false
         ) {
-          reportsData(
-            startDate: $startDate
-            endDate: $endDate
-            type: $type
+          reports(
             groupBy: $groupBy
-            accountIds: $accountIds
-            categoryIds: $categoryIds
+            groupByTimeframe: $groupByTimeframe
+            filters: $filters
+            fillEmptyValues: $fillEmptyValues
           ) {
-            summary {
-              total
-              average
-              transactionCount
-            }
-            breakdown {
-              name
-              amount
-              percentage
-              count
-            }
-            timeSeries {
+            groupBy {
               date
-              amount
+              category @include(if: $includeCategory) {
+                id
+                name
+                icon
+                group {
+                  id
+                  name
+                  type
+                }
+              }
+              merchant @include(if: $includeMerchant) {
+                id
+                name
+              }
+            }
+            summary {
+              sum
+              avg
+              count
+              max
+              sumIncome
+              sumExpense
+              savings
+              savingsRate
+              first
+              last
+            }
+          }
+          aggregates(filters: $filters, fillEmptyValues: $fillEmptyValues) {
+            summary {
+              sum
+              avg
+              count
+              max
+              sumIncome
+              sumExpense
+              savings
+              savingsRate
+              first
+              last
             }
           }
         }`,
         {
-          startDate,
-          endDate,
-          type: config.type || 'spending',
-          groupBy: config.groupBy || 'category',
-          accountIds: config.filters?.accounts,
-          categoryIds: config.filters?.categories,
+          filters: {
+            startDate,
+            endDate,
+            accounts: config.filters?.accounts,
+            categories: config.filters?.categories,
+            tags: config.filters?.tags,
+            transactionVisibility: 'non_hidden_transactions_only',
+          },
+          groupBy,
+          groupByTimeframe: config.groupBy === 'month' ? 'month' : (config.groupBy === 'week' ? 'week' : null),
+          fillEmptyValues: true,
+          includeCategory,
+          includeMerchant,
         }
       )
 
-      const data = response.reportsData
+      const reports = response.reports ?? []
+      const aggregates = response.aggregates
+
+      // Transform to our interface format
+      const breakdown = reports.map(r => {
+        let label = 'Unknown'
+        if (r.groupBy.category) {
+          label = r.groupBy.category.name
+        } else if (r.groupBy.merchant) {
+          label = r.groupBy.merchant.name
+        } else if (r.groupBy.date) {
+          label = r.groupBy.date
+        }
+
+        const total = aggregates?.summary?.sum || 1
+        return {
+          label,
+          value: r.summary?.sum ?? 0,
+          percentage: total !== 0 ? ((r.summary?.sum ?? 0) / Math.abs(total)) * 100 : 0,
+          count: r.summary?.count ?? 0,
+        }
+      })
+
+      // Build time series from reports if grouped by date
+      const timeSeries = reports
+        .filter(r => r.groupBy.date)
+        .map(r => ({
+          date: r.groupBy.date!,
+          value: r.summary?.sum ?? 0,
+        }))
 
       return {
         id: `report-${Date.now()}`,
@@ -245,20 +384,12 @@ export class ReportsAPIImpl implements ReportsAPI {
         type: config.type || 'spending',
         dateRange: { startDate, endDate },
         summary: {
-          total: data?.summary?.total ?? 0,
-          average: data?.summary?.average ?? 0,
-          count: data?.summary?.transactionCount ?? 0,
+          total: aggregates?.summary?.sum ?? 0,
+          average: aggregates?.summary?.avg ?? 0,
+          count: aggregates?.summary?.count ?? 0,
         },
-        breakdown: (data?.breakdown ?? []).map(b => ({
-          label: b.name,
-          value: b.amount,
-          percentage: b.percentage,
-          count: b.count,
-        })),
-        timeSeries: data?.timeSeries?.map(ts => ({
-          date: ts.date,
-          value: ts.amount,
-        })),
+        breakdown,
+        timeSeries: timeSeries.length > 0 ? timeSeries : undefined,
       }
     } catch (error) {
       logger.error('Failed to generate report', error)
@@ -308,6 +439,11 @@ export class ReportsAPIImpl implements ReportsAPI {
     format?: 'csv' | 'xlsx'
   }): Promise<TransactionExportSession> {
     logger.debug('Creating transaction export', { options })
+
+    // Validate date range if both dates provided
+    if (options.startDate && options.endDate) {
+      validateDateRange(options.startDate, options.endDate)
+    }
 
     const startDate = options.startDate || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     const endDate = options.endDate || new Date().toISOString().split('T')[0]
