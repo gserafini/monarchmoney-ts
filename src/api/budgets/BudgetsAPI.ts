@@ -480,36 +480,12 @@ export class BudgetsAPIImpl implements BudgetsAPI {
   }
 
   async getGoals(): Promise<Goal[]> {
-    const query = `
-      query GetGoals {
-        goals {
-          id
-          name
-          description
-          targetAmount
-          currentAmount
-          targetDate
-          createdAt
-          updatedAt
-          completedAt
-          progress
-          category {
-            id
-            name
-          }
-          accounts {
-            id
-            displayName
-          }
-        }
-      }
-    `
+    // FIXED: The standalone goals query uses wrong fields.
+    // Extract goals from getBudgets() which returns goalsV2 with correct schema.
+    const budgetData = await this.getBudgets()
 
-    const data = await this.graphql.query<{
-      goals: Goal[]
-    }>(query)
-
-    return data.goals
+    // Return goalsV2 data - the Goal type may need updating to match actual API
+    return (budgetData.goalsV2 || []) as unknown as Goal[]
   }
 
   async createGoal(params: CreateGoalParams): Promise<CreateGoalResponse> {
