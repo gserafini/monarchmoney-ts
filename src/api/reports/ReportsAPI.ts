@@ -350,6 +350,10 @@ export class ReportsAPIImpl implements ReportsAPI {
       const reports = response.reports ?? []
       const aggregates = response.aggregates
 
+      // Calculate total from sum of absolute values for proper percentage calculation
+      // (net sum can be ~0 when income/expenses cancel out)
+      const absTotal = reports.reduce((acc, r) => acc + Math.abs(r.summary?.sum ?? 0), 0)
+
       // Transform to our interface format
       const breakdown = reports.map(r => {
         let label = 'Unknown'
@@ -361,11 +365,10 @@ export class ReportsAPIImpl implements ReportsAPI {
           label = r.groupBy.date
         }
 
-        const total = aggregates?.summary?.sum || 1
         return {
           label,
           value: r.summary?.sum ?? 0,
-          percentage: total !== 0 ? ((r.summary?.sum ?? 0) / Math.abs(total)) * 100 : 0,
+          percentage: absTotal !== 0 ? (Math.abs(r.summary?.sum ?? 0) / absTotal) * 100 : 0,
           count: r.summary?.count ?? 0,
         }
       })
