@@ -189,7 +189,7 @@ export class GraphQLClient {
       'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36',
       'Accept': 'application/json',
       'Client-Platform': 'web', // Fixed: match Python case exactly
-      'Origin': 'https://app.monarchmoney.com',
+      'Origin': 'https://app.monarch.com',
       'device-uuid': deviceUuid || this.auth.getDeviceUuid() || 'unknown',
       'x-cio-client-platform': 'web',
       'x-cio-site-id': '2598be4aa410159198b2',
@@ -409,7 +409,7 @@ export class GraphQLClient {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36',
         'Accept': 'application/json',
         'Client-Platform': 'web', // Fixed: match Python case exactly
-        'Origin': 'https://app.monarchmoney.com',
+        'Origin': 'https://app.monarch.com',
         'device-uuid': deviceUuid || this.auth.getDeviceUuid() || 'unknown',
         'x-cio-client-platform': 'web',
         'x-cio-site-id': '2598be4aa410159198b2',

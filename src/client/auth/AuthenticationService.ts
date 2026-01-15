@@ -41,7 +41,7 @@ export class AuthenticationService {
   private readonly minRequestInterval = 300 // 300ms for more human-like auth requests
   private loginInProgress = false
   constructor(
-    baseUrl: string = 'https://api.monarchmoney.com',
+    baseUrl: string = 'https://api.monarch.com',
     sessionStorage?: SessionStorage
   ) {
     this.baseUrl = baseUrl
@@ -247,7 +247,7 @@ export class AuthenticationService {
           'Content-Type': 'application/json',
           'Authorization': `Token ${token}`,
           'User-Agent': this.getUserAgent(),
-          'Origin': 'https://app.monarchmoney.com'
+          'Origin': 'https://app.monarch.com'
         },
         body: JSON.stringify({
           query: 'query { me { id email } }'
@@ -381,7 +381,7 @@ export class AuthenticationService {
         'Content-Type': 'application/json',
         'User-Agent': this.getUserAgent(),
         'device-uuid': deviceUuid,
-        'Origin': 'https://app.monarchmoney.com',
+        'Origin': 'https://app.monarch.com',
         'x-cio-client-platform': 'web',
         'x-cio-site-id': '2598be4aa410159198b2',
         'x-gist-user-anonymous': 'false'
@@ -398,7 +398,7 @@ export class AuthenticationService {
         'Content-Type': 'application/json',
         'User-Agent': this.getUserAgent(),
         'device-uuid': deviceUuid,
-        'Origin': 'https://app.monarchmoney.com',
+        'Origin': 'https://app.monarch.com',
         'x-cio-client-platform': 'web',
         'x-cio-site-id': '2598be4aa410159198b2',
         'x-gist-user-anonymous': 'false'
@@ -487,7 +487,7 @@ export class AuthenticationService {
         'Content-Type': 'application/json',
         'User-Agent': this.getUserAgent(),
         'device-uuid': deviceUuid,
-        'Origin': 'https://app.monarchmoney.com',
+        'Origin': 'https://app.monarch.com',
         'x-cio-client-platform': 'web',
         'x-cio-site-id': '2598be4aa410159198b2',
         'x-gist-user-anonymous': 'false'

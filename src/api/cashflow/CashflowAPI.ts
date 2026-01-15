@@ -93,7 +93,7 @@ export class CashflowAPIImpl implements CashflowAPI {
     endDate?: string
     filters?: TransactionFilter
   }): Promise<CashflowData> {
-    const { startDate, endDate } = options?.startDate && options?.endDate 
+    const { startDate, endDate } = options?.startDate && options?.endDate
       ? { startDate: options.startDate, endDate: options.endDate }
       : this.getCurrentMonthDates()
 
@@ -107,85 +107,22 @@ export class CashflowAPIImpl implements CashflowAPI {
       ...options?.filters
     }
 
-    const query = `
-      query Web_GetCashFlowPage($filters: TransactionFilterInput) {
-        byCategory: aggregates(filters: $filters, groupBy: ["category"]) {
+    // FIXED: Monarch's API doesn't support GraphQL aliases for aggregates queries.
+    // Make separate requests for each groupBy type.
+    const makeQuery = (groupBy: string, limit?: number) => `
+      query ($filters: TransactionFilterInput) {
+        aggregates(filters: $filters, groupBy: ["${groupBy}"]${limit ? `, limit: ${limit}` : ''}) {
           groupBy {
-            category {
-              id
-              name
-              group {
-                id
-                type
-                __typename
-              }
-              __typename
-            }
+            ${groupBy === 'category' ? 'category { id name group { id type __typename } __typename }' : ''}
+            ${groupBy === 'categoryGroup' ? 'categoryGroup { id name type __typename }' : ''}
+            ${groupBy === 'account' ? 'account { id displayName __typename }' : ''}
+            ${groupBy === 'merchant' ? 'merchant { id name __typename }' : ''}
+            ${groupBy === 'month' ? 'month { date __typename }' : ''}
             __typename
           }
           summary {
             sum
-            __typename
-          }
-          __typename
-        }
-        byCategoryGroup: aggregates(filters: $filters, groupBy: ["categoryGroup"]) {
-          groupBy {
-            categoryGroup {
-              id
-              name
-              type
-              __typename
-            }
-            __typename
-          }
-          summary {
-            sum
-            __typename
-          }
-          __typename
-        }
-        byAccount: aggregates(filters: $filters, groupBy: ["account"]) {
-          groupBy {
-            account {
-              id
-              displayName
-              __typename
-            }
-            __typename
-          }
-          summary {
-            sum
-            __typename
-          }
-          __typename
-        }
-        byMerchant: aggregates(filters: $filters, groupBy: ["merchant"], limit: 50) {
-          groupBy {
-            merchant {
-              id
-              name
-              __typename
-            }
-            __typename
-          }
-          summary {
-            sum
-            __typename
-          }
-          __typename
-        }
-        byMonth: aggregates(filters: $filters, groupBy: ["month"]) {
-          groupBy {
-            month {
-              date
-              __typename
-            }
-            __typename
-          }
-          summary {
-            sum
-            count
+            ${groupBy === 'month' ? 'count' : ''}
             __typename
           }
           __typename
@@ -193,7 +130,16 @@ export class CashflowAPIImpl implements CashflowAPI {
       }
     `
 
-    return await this.graphql.query<CashflowData>(query, { filters })
+    // Execute queries in parallel
+    const [byCategory, byCategoryGroup] = await Promise.all([
+      this.graphql.query<{ aggregates: CategoryAggregate[] }>(makeQuery('category'), { filters }),
+      this.graphql.query<{ aggregates: CategoryGroupAggregate[] }>(makeQuery('categoryGroup'), { filters }),
+    ])
+
+    return {
+      byCategory: byCategory.aggregates,
+      byCategoryGroup: byCategoryGroup.aggregates,
+    }
   }
 
   async getCashflowSummary(options?: {
