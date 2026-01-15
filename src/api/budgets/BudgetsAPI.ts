@@ -647,136 +647,37 @@ export class BudgetsAPIImpl implements BudgetsAPI {
     return result.deleteGoal.deleted
   }
 
-  async getCashFlow(options: CashFlowOptions = {}): Promise<CashFlowData> {
-    const { startDate, endDate, groupBy = 'month', limit = 100 } = options
-
-    if (startDate && endDate) {
-      validateDateRange(startDate, endDate)
-    }
-
-    const query = `
-      query GetCashFlow(
-        $startDate: String
-        $endDate: String
-        $groupBy: String!
-        $limit: Int
-      ) {
-        cashFlow(
-          startDate: $startDate
-          endDate: $endDate
-          groupBy: $groupBy
-          limit: $limit
-        ) {
-          totalIncome
-          totalExpenses
-          netCashFlow
-          periods {
-            period
-            income
-            expenses
-            netCashFlow
-          }
-          categories {
-            categoryId
-            categoryName
-            totalAmount
-            transactionCount
-          }
-        }
-      }
-    `
-
-    const data = await this.graphql.query<{
-      cashFlow: CashFlowData
-    }>(query, { startDate, endDate, groupBy, limit })
-
-    logger.debug('Retrieved cash flow data')
-    return data.cashFlow
+  /**
+   * @deprecated This method uses a broken GraphQL query.
+   * Use `client.cashflow.getCashflow()` instead which uses the correct API.
+   */
+  async getCashFlow(_options: CashFlowOptions = {}): Promise<CashFlowData> {
+    throw new Error(
+      'BudgetsAPI.getCashFlow() is deprecated due to broken GraphQL schema. ' +
+      'Use client.cashflow.getCashflow() instead.'
+    )
   }
 
-  async getCashFlowSummary(options: CashFlowSummaryOptions = {}): Promise<CashFlowSummary> {
-    const { startDate, endDate } = options
-
-    if (startDate && endDate) {
-      validateDateRange(startDate, endDate)
-    }
-
-    const query = `
-      query GetCashFlowSummary($startDate: String, $endDate: String) {
-        cashFlowSummary(startDate: $startDate, endDate: $endDate) {
-          totalIncome
-          totalExpenses
-          netCashFlow
-          averageMonthlyIncome
-          averageMonthlyExpenses
-          averageMonthlyNetCashFlow
-          periodCount
-        }
-      }
-    `
-
-    const data = await this.graphql.query<{
-      cashFlowSummary: CashFlowSummary
-    }>(query, { startDate, endDate })
-
-    return data.cashFlowSummary
+  /**
+   * @deprecated This method uses a broken GraphQL query.
+   * Use `client.cashflow.getCashflowSummary()` instead which uses the correct API.
+   */
+  async getCashFlowSummary(_options: CashFlowSummaryOptions = {}): Promise<CashFlowSummary> {
+    throw new Error(
+      'BudgetsAPI.getCashFlowSummary() is deprecated due to broken GraphQL schema. ' +
+      'Use client.cashflow.getCashflowSummary() instead.'
+    )
   }
 
-  async getBills(options: BillsOptions = {}): Promise<BillsData> {
-    const { startDate, endDate, includeCompleted = false, limit = 100 } = options
-
-    if (startDate && endDate) {
-      validateDateRange(startDate, endDate)
-    }
-
-    const query = `
-      query GetBills(
-        $startDate: String
-        $endDate: String
-        $includeCompleted: Boolean!
-        $limit: Int
-      ) {
-        bills(
-          startDate: $startDate
-          endDate: $endDate
-          includeCompleted: $includeCompleted
-          limit: $limit
-        ) {
-          totalAmount
-          totalCount
-          overdueBills
-          upcomingBills
-          bills {
-            id
-            merchant {
-              name
-            }
-            amount
-            dueDate
-            isPaid
-            isOverdue
-            category {
-              id
-              name
-            }
-            account {
-              id
-              displayName
-            }
-            recurringRule {
-              frequency
-              nextDate
-            }
-          }
-        }
-      }
-    `
-
-    const data = await this.graphql.query<{
-      bills: BillsData
-    }>(query, { startDate, endDate, includeCompleted, limit })
-
-    logger.debug('Retrieved bills data')
-    return data.bills
+  /**
+   * @deprecated This method uses a broken GraphQL query.
+   * Use `client.recurring.getRecurringStreams()` instead and filter for
+   * `recurringType === 'expense'` to get bills.
+   */
+  async getBills(_options: BillsOptions = {}): Promise<BillsData> {
+    throw new Error(
+      'BudgetsAPI.getBills() is deprecated due to broken GraphQL schema. ' +
+      'Use client.recurring.getRecurringStreams() and filter for recurringType === "expense" instead.'
+    )
   }
 }
