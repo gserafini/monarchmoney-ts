@@ -22,7 +22,7 @@ const DEFAULT_CONFIG: Required<MonarchConfig> = {
   email: '',
   password: '',
   sessionToken: '',
-  baseURL: 'https://api.monarchmoney.com',
+  baseURL: 'https://api.monarch.com',
   timeout: 30000,
   retries: 3,
   retryDelay: 1000,
