@@ -21,7 +21,7 @@ export class DirectAuthenticationService {
   private sessionStorage: SessionStorage
 
   constructor(
-    baseUrl: string = 'https://api.monarchmoney.com',
+    baseUrl: string = 'https://api.monarch.com',
     sessionStorage?: SessionStorage
   ) {
     this.baseUrl = baseUrl
@@ -59,7 +59,7 @@ export class DirectAuthenticationService {
       'Content-Type': 'application/json',
       'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'device-uuid': deviceUuid,
-      'Origin': 'https://app.monarchmoney.com',
+      'Origin': 'https://app.monarch.com',
       'x-cio-client-platform': 'web',
       'x-cio-site-id': '2598be4aa410159198b2',
       'x-gist-user-anonymous': 'false'
