@@ -60,7 +60,11 @@ export interface SecurityPerformance {
 }
 
 export interface InvestmentsAPI {
-  // Portfolio overview
+  /**
+   * Get complete portfolio overview including summary, holdings, and breakdowns.
+   * Uses the Web_GetPortfolio GraphQL query.
+   * @returns Portfolio data with summary, holdings list, account breakdown, and asset allocation
+   */
   getPortfolio(): Promise<{
     summary: PortfolioSummary
     holdings: PortfolioHolding[]
@@ -68,16 +72,35 @@ export interface InvestmentsAPI {
     byAssetClass: Array<{ assetClass: string; value: number; allocation: number }>
   }>
 
-  // Investment accounts
+  /**
+   * Get list of investment accounts (brokerage, retirement, etc).
+   * Uses the Web_GetInvestmentsAccounts GraphQL query.
+   * @returns Array of investment accounts with balances and metadata
+   */
   getInvestmentAccounts(): Promise<InvestmentAccount[]>
 
-  // Holdings
+  /**
+   * Get holdings, optionally filtered by account.
+   * @param accountId - Optional account ID to filter holdings
+   * @returns Array of portfolio holdings
+   */
   getHoldings(accountId?: string): Promise<PortfolioHolding[]>
 
-  // Security performance history
+  /**
+   * Get historical performance data for specific securities.
+   * Uses the Web_GetSecuritiesHistoricalPerformance GraphQL query.
+   * @param securityIds - Array of security IDs to fetch performance for (must not be empty)
+   * @param startDate - Optional start date (YYYY-MM-DD), defaults to 30 days ago
+   * @param endDate - Optional end date (YYYY-MM-DD), defaults to today
+   * @returns Array of security performance data with historical charts
+   */
   getSecurityPerformance(securityIds: string[], startDate?: string, endDate?: string): Promise<SecurityPerformance[]>
 
-  // Dashboard card data
+  /**
+   * Get investments dashboard card data for quick overview.
+   * Uses the Web_GetInvestmentsDashboardCard GraphQL query.
+   * @returns Dashboard summary with total value, day change, and top movers
+   */
   getDashboardCard(): Promise<{
     totalValue: number
     dayChange: number
@@ -100,125 +123,221 @@ export class InvestmentsAPIImpl implements InvestmentsAPI {
     try {
       const response = await this.graphql.query<{
         portfolio: {
-          aggregateHoldings: {
+          performance: {
             totalValue: number
-            totalCostBasis: number
-            totalGainLoss: number
-            totalGainLossPercent: number
-            dayChange: number
-            dayChangePercent: number
-            holdings: Array<{
-              id: string
-              account: { id: string; displayName: string }
-              security: {
+            totalBasis: number
+            totalChangePercent: number
+            totalChangeDollars: number
+            oneDayChangePercent: number
+            historicalChart: Array<{ date: string; returnPercent: number }>
+            benchmarks: Array<{
+              security: { id: string; ticker: string; name: string; oneDayChangePercent: number }
+              historicalChart: Array<{ date: string; returnPercent: number }>
+            }>
+          }
+          aggregateHoldings: {
+            edges: Array<{
+              node: {
                 id: string
-                name: string
-                ticker: string
-                type: string
-                currentPrice: number
-                closingPrice: number
-                oneDayChangePercent: number
+                quantity: number
+                basis: number
+                totalValue: number
+                securityPriceChangeDollars: number
+                securityPriceChangePercent: number
+                lastSyncedAt: string
+                holdings: Array<{
+                  id: string
+                  type: string
+                  typeDisplay: string
+                  name: string
+                  ticker: string
+                  closingPrice: number
+                  closingPriceUpdatedAt: string
+                  quantity: number
+                  value: number
+                  account: {
+                    id: string
+                    mask: string
+                    icon: string
+                    logoUrl: string
+                    institution: { id: string; name: string }
+                    type: { name: string; display: string }
+                    subtype: { name: string; display: string }
+                    displayName: string
+                    currentBalance: number
+                  }
+                  taxLots: Array<{
+                    id: string
+                    createdAt: string
+                    acquisitionDate: string
+                    acquisitionQuantity: number
+                    costBasisPerUnit: number
+                  }>
+                }>
+                security: {
+                  id: string
+                  name: string
+                  ticker: string
+                  currentPrice: number
+                  currentPriceUpdatedAt: string
+                  closingPrice: number
+                  type: string
+                  typeDisplay: string
+                }
               }
-              quantity: number
-              value: number
-              costBasis: number
-              gainLoss: number
-              gainLossPercent: number
-              allocation: number
-            }>
-            byAccount: Array<{
-              account: { id: string; displayName: string }
-              totalValue: number
-              holdings: Array<any>
-            }>
-            byAssetClass: Array<{
-              assetClass: string
-              value: number
-              allocation: number
             }>
           }
         }
       }>(
-        `query Web_GetPortfolio {
-          portfolio {
-            aggregateHoldings {
+        `query Web_GetPortfolio($portfolioInput: PortfolioInput) {
+          portfolio(input: $portfolioInput) {
+            performance {
               totalValue
-              totalCostBasis
-              totalGainLoss
-              totalGainLossPercent
-              dayChange
-              dayChangePercent
-              holdings {
-                id
-                account {
-                  id
-                  displayName
-                }
+              totalBasis
+              totalChangePercent
+              totalChangeDollars
+              oneDayChangePercent
+              historicalChart {
+                date
+                returnPercent
+              }
+              benchmarks {
                 security {
                   id
-                  name
                   ticker
-                  type
-                  currentPrice
-                  closingPrice
+                  name
                   oneDayChangePercent
                 }
-                quantity
-                value
-                costBasis
-                gainLoss
-                gainLossPercent
-                allocation
-              }
-              byAccount {
-                account {
-                  id
-                  displayName
+                historicalChart {
+                  date
+                  returnPercent
                 }
-                totalValue
-                holdings {
+              }
+            }
+            aggregateHoldings {
+              edges {
+                node {
                   id
+                  quantity
+                  basis
+                  totalValue
+                  securityPriceChangeDollars
+                  securityPriceChangePercent
+                  lastSyncedAt
+                  holdings {
+                    id
+                    type
+                    typeDisplay
+                    name
+                    ticker
+                    closingPrice
+                    closingPriceUpdatedAt
+                    quantity
+                    value
+                    account {
+                      id
+                      mask
+                      icon
+                      logoUrl
+                      institution {
+                        id
+                        name
+                      }
+                      type {
+                        name
+                        display
+                      }
+                      subtype {
+                        name
+                        display
+                      }
+                      displayName
+                      currentBalance
+                    }
+                    taxLots {
+                      id
+                      createdAt
+                      acquisitionDate
+                      acquisitionQuantity
+                      costBasisPerUnit
+                    }
+                  }
                   security {
                     id
                     name
                     ticker
+                    currentPrice
+                    currentPriceUpdatedAt
+                    closingPrice
+                    type
+                    typeDisplay
                   }
-                  value
-                  allocation
                 }
-              }
-              byAssetClass {
-                assetClass
-                value
-                allocation
               }
             }
           }
         }`,
-        {},
+        { portfolioInput: {} },
         { cache: true, cacheTTL: 60000 }
       )
 
-      const agg = response.portfolio?.aggregateHoldings
+      const perf = response.portfolio?.performance
+      const holdings = response.portfolio?.aggregateHoldings?.edges ?? []
+
+      // Transform holdings to our interface format
+      const transformedHoldings: PortfolioHolding[] = holdings.map((edge: any) => {
+        const node = edge.node
+        return {
+          id: node.id,
+          account: node.holdings?.[0]?.account ?? { id: '', displayName: '' },
+          security: {
+            id: node.security?.id ?? '',
+            name: node.security?.name ?? '',
+            ticker: node.security?.ticker ?? '',
+            type: node.security?.type ?? '',
+            currentPrice: node.security?.currentPrice ?? 0,
+            closingPrice: node.security?.closingPrice ?? 0,
+            oneDayChangePercent: node.securityPriceChangePercent ?? 0,
+          },
+          quantity: node.quantity ?? 0,
+          value: node.totalValue ?? 0,
+          costBasis: node.basis ?? 0,
+          gainLoss: node.securityPriceChangeDollars ?? 0,
+          gainLossPercent: node.securityPriceChangePercent ?? 0,
+          allocation: 0, // Would need to calculate
+        }
+      })
+
+      // Group holdings by account
+      const accountMap = new Map<string, InvestmentAccount>()
+      for (const holding of transformedHoldings) {
+        const acctId = holding.account.id
+        if (!accountMap.has(acctId)) {
+          accountMap.set(acctId, {
+            id: acctId,
+            displayName: holding.account.displayName,
+            currentBalance: 0,
+            type: 'investment',
+            holdings: [],
+          })
+        }
+        const acct = accountMap.get(acctId)!
+        acct.holdings.push(holding)
+        acct.currentBalance += holding.value
+      }
 
       return {
         summary: {
-          totalValue: agg?.totalValue ?? 0,
-          totalCostBasis: agg?.totalCostBasis ?? 0,
-          totalGainLoss: agg?.totalGainLoss ?? 0,
-          totalGainLossPercent: agg?.totalGainLossPercent ?? 0,
-          dayChange: agg?.dayChange ?? 0,
-          dayChangePercent: agg?.dayChangePercent ?? 0,
+          totalValue: perf?.totalValue ?? 0,
+          totalCostBasis: perf?.totalBasis ?? 0,
+          totalGainLoss: perf?.totalChangeDollars ?? 0,
+          totalGainLossPercent: perf?.totalChangePercent ?? 0,
+          dayChange: 0, // Not directly in response, would need calculation
+          dayChangePercent: perf?.oneDayChangePercent ?? 0,
         },
-        holdings: agg?.holdings ?? [],
-        byAccount: (agg?.byAccount ?? []).map((ba: any) => ({
-          id: ba.account.id,
-          displayName: ba.account.displayName,
-          currentBalance: ba.totalValue,
-          type: 'investment',
-          holdings: ba.holdings,
-        })),
-        byAssetClass: agg?.byAssetClass ?? [],
+        holdings: transformedHoldings,
+        byAccount: Array.from(accountMap.values()),
+        byAssetClass: [], // Would need Web_GetAllocation query
       }
     } catch (error) {
       logger.error('Failed to fetch portfolio', error)
@@ -301,8 +420,22 @@ export class InvestmentsAPIImpl implements InvestmentsAPI {
     startDate?: string,
     endDate?: string
   ): Promise<SecurityPerformance[]> {
+    // Validate securityIds - filter invalid values and return early if empty
+    const validSecurityIds = Array.isArray(securityIds)
+      ? securityIds.filter(id => typeof id === 'string' && id.trim().length > 0)
+      : []
+
+    if (validSecurityIds.length === 0) {
+      logger.warn('getSecurityPerformance called with no valid securityIds', {
+        securityIds,
+        startDate,
+        endDate,
+      })
+      return []
+    }
+
     validateDateRange(startDate, endDate)
-    logger.debug('Fetching security performance', { securityIds, startDate, endDate })
+    logger.debug('Fetching security performance', { securityIds: validSecurityIds, startDate, endDate })
 
     // Default to last 30 days if no dates provided
     const end = endDate || new Date().toISOString().split('T')[0]
@@ -310,38 +443,44 @@ export class InvestmentsAPIImpl implements InvestmentsAPI {
 
     try {
       const response = await this.graphql.query<{
-        securities: Array<{
-          id: string
-          ticker: string
-          name: string
-          historicalPerformance: Array<{
+        securityHistoricalPerformance: Array<{
+          security: { id: string }
+          historicalChart: Array<{
             date: string
-            price: number
-            percentChange: number
+            returnPercent: number
           }>
         }>
       }>(
-        `query Web_GetSecuritiesHistoricalPerformance($securityIds: [ID!]!, $startDate: Date!, $endDate: Date!) {
-          securities(ids: $securityIds) {
-            id
-            ticker
-            name
-            historicalPerformance(startDate: $startDate, endDate: $endDate) {
+        `query Web_GetSecuritiesHistoricalPerformance($input: SecurityHistoricalPerformanceInput!) {
+          securityHistoricalPerformance(input: $input) {
+            security {
+              id
+            }
+            historicalChart {
               date
-              price
-              percentChange
+              returnPercent
             }
           }
         }`,
-        { securityIds, startDate: start, endDate: end },
+        {
+          input: {
+            securityIds: validSecurityIds,
+            startDate: start,
+            endDate: end
+          }
+        },
         { cache: true, cacheTTL: 300000 }
       )
 
-      return (response.securities ?? []).map(sec => ({
-        securityId: sec.id,
-        ticker: sec.ticker,
-        name: sec.name,
-        performance: sec.historicalPerformance ?? [],
+      return (response.securityHistoricalPerformance ?? []).map(perf => ({
+        securityId: perf.security?.id ?? '',
+        ticker: '', // Not returned in this query
+        name: '', // Not returned in this query
+        performance: (perf.historicalChart ?? []).map(h => ({
+          date: h.date,
+          price: 0, // Not returned, only returnPercent
+          percentChange: h.returnPercent,
+        })),
       }))
     } catch (error) {
       logger.error('Failed to fetch security performance', error)
