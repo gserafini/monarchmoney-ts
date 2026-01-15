@@ -12,7 +12,7 @@ MonarchMoney has temporarily blocked API access and requires web browser verific
 
 To resolve this:
 1. Open your web browser
-2. Go to: https://app.monarchmoney.com/login
+2. Go to: https://app.monarch.com/login
 3. Log in with your credentials
 4. Complete any CAPTCHA challenges shown
 5. Once logged in successfully, you can return to use this library

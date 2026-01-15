@@ -357,55 +357,40 @@ export class CategoriesAPIImpl implements CategoriesAPI {
   // Tags management methods
   async getTags(): Promise<TransactionTag[]> {
     logger.debug('Fetching all transaction tags')
-    
+
+    // FIXED: Use householdTransactionTags query with correct fields
     const query = `
       query GetTransactionTags {
-        transactionTags {
+        householdTransactionTags {
           id
           name
           color
           order
-          isDefault
-          createdAt
-          updatedAt
+          __typename
         }
       }
     `
 
     const result = await this.graphql.query<{
-      transactionTags: TransactionTag[]
+      householdTransactionTags: TransactionTag[]
     }>(query)
 
-    return result.transactionTags || []
+    return result.householdTransactionTags || []
   }
 
   async getTagById(tagId: string): Promise<TransactionTag> {
     validateRequired({ tagId })
     logger.debug(`Fetching tag by ID: ${tagId}`)
 
-    const query = `
-      query GetTransactionTag($tagId: ID!) {
-        transactionTag(id: $tagId) {
-          id
-          name
-          color
-          order
-          isDefault
-          createdAt
-          updatedAt
-        }
-      }
-    `
+    // FIXED: API doesn't support single tag query, so fetch all and filter
+    const tags = await this.getTags()
+    const tag = tags.find(t => t.id === tagId)
 
-    const result = await this.graphql.query<{
-      transactionTag: TransactionTag
-    }>(query, { tagId })
-
-    if (!result.transactionTag) {
+    if (!tag) {
       throw new Error(`Tag not found: ${tagId}`)
     }
 
-    return result.transactionTag
+    return tag
   }
 
   async createTag(data: CreateTagInput): Promise<TransactionTag> {
