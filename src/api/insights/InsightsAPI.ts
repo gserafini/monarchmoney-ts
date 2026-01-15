@@ -57,7 +57,8 @@ export interface SubscriptionDetails {
 
 export interface InsightsAPI {
   /**
-   * Get financial insights and recommendations
+   * @deprecated This method uses a broken GraphQL query that doesn't exist in the Monarch API.
+   * The 'insights' endpoint is not available via the public GraphQL schema.
    */
   getInsights(options?: {
     startDate?: string
@@ -74,24 +75,28 @@ export interface InsightsAPI {
   }): Promise<NetWorthHistoryPoint[]>
 
   /**
-   * Get credit score monitoring data
+   * @deprecated This method uses a broken GraphQL query.
+   * The 'spinwheelCreditScoreSnapshots' endpoint is not available via the public GraphQL schema.
    */
   getCreditScore(options?: {
     includeHistory?: boolean
   }): Promise<CreditScore>
 
   /**
-   * Get account notifications and alerts
+   * @deprecated This method uses a broken GraphQL query.
+   * The 'notifications' endpoint is not available via the public GraphQL schema.
    */
   getNotifications(): Promise<Notification[]>
 
   /**
-   * Get subscription details and plan information
+   * @deprecated This method uses a broken GraphQL query.
+   * The 'subscriptionDetails' endpoint is not available via the public GraphQL schema.
    */
   getSubscriptionDetails(): Promise<SubscriptionDetails>
 
   /**
-   * Dismiss an insight
+   * @deprecated This method uses a broken GraphQL mutation.
+   * The 'dismissInsight' endpoint is not available via the public GraphQL schema.
    */
   dismissInsight(insightId: string): Promise<boolean>
 }
@@ -99,45 +104,20 @@ export interface InsightsAPI {
 export class InsightsAPIImpl implements InsightsAPI {
   constructor(private graphql: GraphQLClient) {}
 
-  async getInsights(options?: {
+  /**
+   * @deprecated This method uses a broken GraphQL query that doesn't exist in the Monarch API.
+   * The 'insights' endpoint is not available via the public GraphQL schema.
+   */
+  async getInsights(_options?: {
     startDate?: string
     endDate?: string
     insightTypes?: string[]
   }): Promise<Insight[]> {
-    const variables: Record<string, any> = {}
-    
-    if (options?.startDate) variables.startDate = options.startDate
-    if (options?.endDate) variables.endDate = options.endDate
-    if (options?.insightTypes) variables.insightTypes = options.insightTypes
-
-    const query = `
-      query GetInsights(
-        $startDate: String,
-        $endDate: String,
-        $insightTypes: [String]
-      ) {
-        insights(
-          startDate: $startDate,
-          endDate: $endDate,
-          insightTypes: $insightTypes
-        ) {
-          id
-          type
-          title
-          description
-          priority
-          category
-          actionRequired
-          createdAt
-          dismissedAt
-          metadata
-          __typename
-        }
-      }
-    `
-
-    const result = await this.graphql.query<{ insights: Insight[] }>(query, variables)
-    return result.insights
+    throw new Error(
+      'InsightsAPI.getInsights() is deprecated. ' +
+        'The "insights" GraphQL query does not exist in the Monarch API schema. ' +
+        'This feature is not currently available via the API.'
+    )
   }
 
   async getNetWorthHistory(options?: {
@@ -146,7 +126,9 @@ export class InsightsAPIImpl implements InsightsAPI {
   }): Promise<NetWorthHistoryPoint[]> {
     // Default to last 12 months if no dates provided
     const endDate = options?.endDate || new Date().toISOString().split('T')[0]
-    const startDate = options?.startDate || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    const startDate =
+      options?.startDate ||
+      new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
     const variables = { startDate, endDate }
 
@@ -169,125 +151,51 @@ export class InsightsAPIImpl implements InsightsAPI {
     return result.netWorthHistory
   }
 
-  async getCreditScore(options?: {
-    includeHistory?: boolean
-  }): Promise<CreditScore> {
-    const variables = {
-      includeHistory: options?.includeHistory ?? true
-    }
-
-    const query = `
-      query Common_GetSpinwheelCreditScoreSnapshots($includeHistory: Boolean!) {
-        spinwheelCreditScoreSnapshots(includeHistory: $includeHistory) {
-          score
-          provider
-          lastUpdated
-          history {
-            date
-            score
-            __typename
-          }
-          factors {
-            category
-            impact
-            description
-            __typename
-          }
-          __typename
-        }
-      }
-    `
-
-    try {
-      const result = await this.graphql.query<{
-        spinwheelCreditScoreSnapshots: CreditScore
-      }>(query, variables)
-
-      return result.spinwheelCreditScoreSnapshots
-    } catch (error) {
-      // Return empty credit score data if the service is not available
-      return {
-        score: undefined,
-        provider: undefined,
-        lastUpdated: undefined,
-        history: [],
-        factors: []
-      }
-    }
+  /**
+   * @deprecated This method uses a broken GraphQL query.
+   * The 'spinwheelCreditScoreSnapshots' endpoint is not available via the public GraphQL schema.
+   */
+  async getCreditScore(_options?: { includeHistory?: boolean }): Promise<CreditScore> {
+    throw new Error(
+      'InsightsAPI.getCreditScore() is deprecated. ' +
+        'The "spinwheelCreditScoreSnapshots" GraphQL query does not exist in the Monarch API schema. ' +
+        'This feature is not currently available via the API.'
+    )
   }
 
+  /**
+   * @deprecated This method uses a broken GraphQL query.
+   * The 'notifications' endpoint is not available via the public GraphQL schema.
+   */
   async getNotifications(): Promise<Notification[]> {
-    const query = `
-      query GetNotifications {
-        notifications {
-          id
-          type
-          title
-          message
-          priority
-          isRead
-          createdAt
-          actionUrl
-          __typename
-        }
-      }
-    `
-
-    const result = await this.graphql.query<{ notifications: Notification[] }>(query)
-    return result.notifications
+    throw new Error(
+      'InsightsAPI.getNotifications() is deprecated. ' +
+        'The "notifications" GraphQL query does not exist in the Monarch API schema. ' +
+        'This feature is not currently available via the API.'
+    )
   }
 
+  /**
+   * @deprecated This method uses a broken GraphQL query.
+   * The 'subscriptionDetails' endpoint is not available via the public GraphQL schema.
+   */
   async getSubscriptionDetails(): Promise<SubscriptionDetails> {
-    const query = `
-      query Common_GetSubscriptionDetails {
-        subscriptionDetails {
-          planType
-          status
-          billingCycle
-          nextBillingDate
-          price
-          features
-          __typename
-        }
-      }
-    `
-
-    const result = await this.graphql.query<{
-      subscriptionDetails: SubscriptionDetails
-    }>(query)
-
-    return result.subscriptionDetails
+    throw new Error(
+      'InsightsAPI.getSubscriptionDetails() is deprecated. ' +
+        'The "subscriptionDetails" GraphQL query does not exist in the Monarch API schema. ' +
+        'This feature is not currently available via the API.'
+    )
   }
 
-  async dismissInsight(insightId: string): Promise<boolean> {
-    const variables = { insightId }
-
-    const mutation = `
-      mutation DismissInsight($insightId: ID!) {
-        dismissInsight(insightId: $insightId) {
-          success
-          errors {
-            message
-            field
-            __typename
-          }
-          __typename
-        }
-      }
-    `
-
-    try {
-      const result = await this.graphql.mutation<{
-        dismissInsight: {
-          success: boolean
-          errors?: Array<{ message: string; field?: string }>
-        }
-      }>(mutation, variables)
-
-      return result.dismissInsight.success
-    } catch (error) {
-      console.error('Failed to dismiss insight:', error)
-      return false
-    }
+  /**
+   * @deprecated This method uses a broken GraphQL mutation.
+   * The 'dismissInsight' endpoint is not available via the public GraphQL schema.
+   */
+  async dismissInsight(_insightId: string): Promise<boolean> {
+    throw new Error(
+      'InsightsAPI.dismissInsight() is deprecated. ' +
+        'The "dismissInsight" GraphQL mutation does not exist in the Monarch API schema. ' +
+        'This feature is not currently available via the API.'
+    )
   }
 }

@@ -284,74 +284,54 @@ export class CategoriesAPIImpl implements CategoriesAPI {
   // Category groups methods
   async getCategoryGroups(): Promise<CategoryGroup[]> {
     logger.debug('Fetching all category groups')
-    
-    const query = `
-      query GetTransactionCategoryGroups {
-        transactionCategoryGroups {
-          id
-          name
-          displayName
-          color
-          icon
-          order
-          isDefault
-          categories {
-            id
-            name
-            displayName
-            color
-            icon
-          }
-          createdAt
-          updatedAt
-        }
+
+    // FIXED: The standalone transactionCategoryGroups query doesn't exist in API.
+    // Extract unique groups from categories response instead.
+    const categories = await this.getCategories()
+
+    // Extract unique groups from categories
+    const groupMap = new Map<string, CategoryGroup>()
+
+    for (const category of categories) {
+      if (category.group && !groupMap.has(category.group.id)) {
+        // Build group with its categories
+        const categoriesInGroup = categories.filter(
+          c => c.group?.id === category.group!.id
+        )
+
+        groupMap.set(category.group.id, {
+          id: category.group.id,
+          name: category.group.name,
+          type: category.group.type,
+          categories: categoriesInGroup.map(c => ({
+            id: c.id,
+            name: c.name,
+            icon: c.icon,
+            order: c.order
+          }))
+        } as CategoryGroup)
       }
-    `
+    }
 
-    const result = await this.graphql.query<{
-      transactionCategoryGroups: CategoryGroup[]
-    }>(query)
-
-    return result.transactionCategoryGroups || []
+    const groups = Array.from(groupMap.values())
+    logger.debug(`Extracted ${groups.length} category groups from categories`)
+    return groups
   }
 
   async getCategoryGroupById(groupId: string): Promise<CategoryGroup> {
     validateRequired({ groupId })
     logger.debug(`Fetching category group by ID: ${groupId}`)
 
-    const query = `
-      query GetTransactionCategoryGroup($groupId: ID!) {
-        transactionCategoryGroup(id: $groupId) {
-          id
-          name
-          displayName
-          color
-          icon
-          order
-          isDefault
-          categories {
-            id
-            name
-            displayName
-            color
-            icon
-            order
-          }
-          createdAt
-          updatedAt
-        }
-      }
-    `
+    // FIXED: The standalone transactionCategoryGroup query doesn't exist.
+    // Get all groups and filter by ID.
+    const groups = await this.getCategoryGroups()
+    const group = groups.find(g => g.id === groupId)
 
-    const result = await this.graphql.query<{
-      transactionCategoryGroup: CategoryGroup
-    }>(query, { groupId })
-
-    if (!result.transactionCategoryGroup) {
+    if (!group) {
       throw new Error(`Category group not found: ${groupId}`)
     }
 
-    return result.transactionCategoryGroup
+    return group
   }
 
   // Tags management methods
@@ -397,6 +377,7 @@ export class CategoriesAPIImpl implements CategoriesAPI {
     validateRequired({ name: data.name })
     logger.debug(`Creating transaction tag: ${data.name}`)
 
+    // FIXED: Removed invalid fields (isDefault, createdAt, updatedAt) that don't exist in API schema
     const mutation = `
       mutation CreateTransactionTag($input: CreateTransactionTagInput!) {
         createTransactionTag(input: $input) {
@@ -405,9 +386,6 @@ export class CategoriesAPIImpl implements CategoriesAPI {
             name
             color
             order
-            isDefault
-            createdAt
-            updatedAt
           }
           errors {
             field
@@ -436,6 +414,7 @@ export class CategoriesAPIImpl implements CategoriesAPI {
     validateRequired({ tagId })
     logger.debug(`Updating tag: ${tagId}`)
 
+    // FIXED: Removed invalid fields (isDefault, createdAt, updatedAt) that don't exist in API schema
     const mutation = `
       mutation UpdateTransactionTag($tagId: ID!, $input: UpdateTransactionTagInput!) {
         updateTransactionTag(id: $tagId, input: $input) {
@@ -444,9 +423,6 @@ export class CategoriesAPIImpl implements CategoriesAPI {
             name
             color
             order
-            isDefault
-            createdAt
-            updatedAt
           }
           errors {
             field
