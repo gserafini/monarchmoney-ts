@@ -484,8 +484,21 @@ export class BudgetsAPIImpl implements BudgetsAPI {
     // Extract goals from getBudgets() which returns goalsV2 with correct schema.
     const budgetData = await this.getBudgets()
 
-    // Return goalsV2 data - the Goal type may need updating to match actual API
-    return (budgetData.goalsV2 || []) as unknown as Goal[]
+    // Map goalsV2 to Goal interface shape with proper field mapping
+    const goalsV2 = (budgetData as any).goalsV2 || []
+
+    return goalsV2.map((goal: any): Goal => ({
+      id: goal.id,
+      name: goal.name || '',
+      targetAmount: goal.targetAmount ?? goal.plannedContributions ?? 0,
+      currentAmount: goal.currentAmount ?? goal.completedAmount ?? 0,
+      targetDate: goal.targetDate ?? goal.plannedDate ?? undefined,
+      createdAt: goal.createdAt ?? new Date().toISOString(),
+      updatedAt: goal.updatedAt ?? new Date().toISOString(),
+      completedAt: goal.completedAt ?? undefined,
+      // Preserve any additional fields from the API
+      ...goal
+    }))
   }
 
   async createGoal(params: CreateGoalParams): Promise<CreateGoalResponse> {
