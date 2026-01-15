@@ -10,6 +10,7 @@ import { CashflowAPIImpl } from '../api/cashflow'
 import { RecurringAPIImpl } from '../api/recurring'
 import { InstitutionsAPIImpl } from '../api/institutions'
 import { InsightsAPIImpl } from '../api/insights'
+import { InvestmentsAPIImpl } from '../api/investments'
 import { 
   getEnvironmentVariable,
   logger,
@@ -66,6 +67,7 @@ export class MonarchClient {
   public recurring: RecurringAPIImpl
   public institutions: InstitutionsAPIImpl
   public insights: InsightsAPIImpl
+  public investments: InvestmentsAPIImpl
 
   constructor(config: MonarchConfig = {}) {
     // Merge with defaults and environment variables
@@ -106,6 +108,7 @@ export class MonarchClient {
     this.recurring = new RecurringAPIImpl(this.graphql)
     this.institutions = new InstitutionsAPIImpl(this.graphql)
     this.insights = new InsightsAPIImpl(this.graphql)
+    this.investments = new InvestmentsAPIImpl(this.graphql)
 
     logger.info('MonarchClient initialized', {
       baseURL: this.config.baseURL,
