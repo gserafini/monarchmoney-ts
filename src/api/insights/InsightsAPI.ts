@@ -100,6 +100,40 @@ export interface NetWorthHistoryPoint {
   liabilities: number
 }
 
+// Aggregate Snapshots types (for net worth chart)
+export interface AggregateSnapshot {
+  date: string
+  balance: number
+  assets?: number
+  liabilities?: number
+}
+
+// Credit Score Snapshot types
+export interface CreditScoreSnapshot {
+  id: string
+  score: number
+  date: string
+  provider?: string
+  change?: number
+}
+
+// Flexible Aggregates types (for spending/income analysis)
+export interface AggregateData {
+  groupBy: string
+  groups: Array<{
+    id: string
+    name: string
+    sum: number
+    count: number
+    avg: number
+  }>
+  summary: {
+    sum: number
+    count: number
+    avg: number
+  }
+}
+
 export interface CreditScore {
   score?: number
   provider?: string
@@ -158,6 +192,39 @@ export interface InsightsAPI {
     startDate?: string
     endDate?: string
   }): Promise<NetWorthHistoryPoint[]>
+
+  /**
+   * Get aggregate snapshots for net worth chart
+   * Uses Web_GetAggregateSnapshots query - powers the dashboard net worth chart
+   */
+  getAggregateSnapshots(options?: {
+    startDate?: string
+    endDate?: string
+    accountType?: string | null
+    useAdaptiveGranularity?: boolean
+  }): Promise<AggregateSnapshot[]>
+
+  /**
+   * Get credit score history snapshots
+   * Uses creditScoreSnapshots query
+   */
+  getCreditScoreSnapshots(): Promise<CreditScoreSnapshot[]>
+
+  /**
+   * Get aggregated transaction data with flexible grouping
+   * Uses aggregates query - for spending/income analysis
+   */
+  getAggregates(options: {
+    startDate: string
+    endDate: string
+    groupBy: ('day' | 'week' | 'month' | 'category' | 'merchant' | 'account')[]
+    fillEmptyValues?: boolean
+    filters?: {
+      categories?: string[]
+      accounts?: string[]
+      hideFromReports?: boolean
+    }
+  }): Promise<AggregateData>
 
   // Legacy methods mapped to new implementations
   getInsights(options?: {
@@ -365,6 +432,180 @@ export class InsightsAPIImpl implements InsightsAPI {
     }>(query, variables)
 
     return result.netWorthHistory
+  }
+
+  /**
+   * Get aggregate snapshots for net worth chart
+   * Uses Web_GetAggregateSnapshots query - powers the dashboard net worth chart
+   */
+  async getAggregateSnapshots(options?: {
+    startDate?: string
+    endDate?: string
+    accountType?: string | null
+    useAdaptiveGranularity?: boolean
+  }): Promise<AggregateSnapshot[]> {
+    // Default to last 30 days
+    const endDate = options?.endDate || null
+    const startDate = options?.startDate ||
+      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    const useAdaptiveGranularity = options?.useAdaptiveGranularity ?? true
+
+    const query = `
+      query Web_GetAggregateSnapshots($filters: AggregateSnapshotFilters) {
+        aggregateSnapshots(filters: $filters) {
+          date
+          balance
+          __typename
+        }
+      }
+    `
+
+    try {
+      const result = await this.graphql.query<{
+        aggregateSnapshots: Array<{ date: string; balance: number }>
+      }>(query, {
+        filters: {
+          startDate,
+          endDate,
+          accountType: options?.accountType || null,
+          useAdaptiveGranularity
+        }
+      })
+
+      return (result.aggregateSnapshots || []).map(s => ({
+        date: s.date,
+        balance: s.balance
+      }))
+    } catch (error) {
+      console.error('Failed to get aggregate snapshots:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get credit score history snapshots
+   * Uses creditScoreSnapshots query
+   */
+  async getCreditScoreSnapshots(): Promise<CreditScoreSnapshot[]> {
+    const query = `
+      query Web_GetCreditScoreSnapshots {
+        creditScoreSnapshots {
+          id
+          score
+          date
+          __typename
+        }
+      }
+    `
+
+    try {
+      const result = await this.graphql.query<{
+        creditScoreSnapshots: Array<{
+          id: string
+          score: number
+          date: string
+        }>
+      }>(query)
+
+      const snapshots = result.creditScoreSnapshots || []
+
+      // Add change calculation
+      return snapshots.map((s, i) => ({
+        id: s.id,
+        score: s.score,
+        date: s.date,
+        provider: 'Spinwheel',
+        change: i < snapshots.length - 1 ? s.score - snapshots[i + 1].score : undefined
+      }))
+    } catch {
+      // 400 errors are expected when credit tracking isn't enabled
+      // Don't log - this is normal for users without credit tracking setup
+      return []
+    }
+  }
+
+  /**
+   * Get aggregated transaction data with flexible grouping
+   * Uses aggregates query - for spending/income analysis
+   */
+  async getAggregates(options: {
+    startDate: string
+    endDate: string
+    groupBy: ('day' | 'week' | 'month' | 'category' | 'merchant' | 'account')[]
+    fillEmptyValues?: boolean
+    filters?: {
+      categories?: string[]
+      accounts?: string[]
+      hideFromReports?: boolean
+    }
+  }): Promise<AggregateData> {
+    // Use aggregates query - MUST use alias like Python library
+    // Note: Must match EXACTLY what works - no extra fields
+    const query = `
+      query Web_GetCashFlowPage($filters: TransactionFilterInput) {
+        byCategory: aggregates(filters: $filters, groupBy: ["category"]) {
+          groupBy {
+            category {
+              id
+              name
+            }
+          }
+          summary {
+            sum
+          }
+        }
+      }
+    `
+
+    try {
+      // Build filters with date range
+      const filters: Record<string, any> = {
+        startDate: options.startDate,
+        endDate: options.endDate
+      }
+
+      const result = await this.graphql.query<{
+        byCategory: Array<{
+          groupBy: {
+            category?: { id: string; name: string }
+          }
+          summary: {
+            sum: number
+          }
+        }>
+      }>(query, { filters })
+
+      const groups = (result.byCategory || []).map(r => {
+        const cat = r.groupBy?.category
+        return {
+          id: cat?.id || 'unknown',
+          name: cat?.name || 'Unknown',
+          sum: r.summary?.sum || 0,
+          count: 0,
+          avg: 0
+        }
+      })
+
+      const totalSum = groups.reduce((acc, g) => acc + g.sum, 0)
+      const totalCount = groups.reduce((acc, g) => acc + g.count, 0)
+
+      return {
+        groupBy: options.groupBy.join(','),
+        groups,
+        summary: {
+          sum: totalSum,
+          count: totalCount,
+          avg: totalCount > 0 ? totalSum / totalCount : 0
+        }
+      }
+    } catch (error) {
+      console.error('Failed to get aggregates:', error)
+      return {
+        groupBy: options.groupBy.join(','),
+        groups: [],
+        summary: { sum: 0, count: 0, avg: 0 }
+      }
+    }
   }
 
   // ============================================================================
