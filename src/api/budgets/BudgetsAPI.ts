@@ -487,18 +487,36 @@ export class BudgetsAPIImpl implements BudgetsAPI {
     // Map goalsV2 to Goal interface shape with proper field mapping
     const goalsV2 = (budgetData as any).goalsV2 || []
 
-    return goalsV2.map((goal: any): Goal => ({
-      id: goal.id,
-      name: goal.name || '',
-      targetAmount: goal.targetAmount ?? goal.plannedContributions ?? 0,
-      currentAmount: goal.currentAmount ?? goal.completedAmount ?? 0,
-      targetDate: goal.targetDate ?? goal.plannedDate ?? undefined,
-      createdAt: goal.createdAt ?? new Date().toISOString(),
-      updatedAt: goal.updatedAt ?? new Date().toISOString(),
-      completedAt: goal.completedAt ?? undefined,
-      // Preserve any additional fields from the API
-      ...goal
-    }))
+    return goalsV2.map((goal: any): Goal => {
+      // Calculate targetAmount from plannedContributions array if targetAmount not directly available
+      const plannedContributionsSum = Array.isArray(goal.plannedContributions)
+        ? goal.plannedContributions.reduce(
+            (sum: number, contrib: { amount?: number }) =>
+              sum + (typeof contrib.amount === 'number' ? contrib.amount : 0),
+            0
+          )
+        : 0
+
+      // Calculate currentAmount from monthlyContributionSummaries if not directly available
+      const monthlyContributionsSum = Array.isArray(goal.monthlyContributionSummaries)
+        ? goal.monthlyContributionSummaries.reduce(
+            (sum: number, summary: { sum?: number }) =>
+              sum + (typeof summary.sum === 'number' ? summary.sum : 0),
+            0
+          )
+        : 0
+
+      return {
+        id: goal.id,
+        name: goal.name || '',
+        targetAmount: goal.targetAmount ?? plannedContributionsSum,
+        currentAmount: goal.currentAmount ?? monthlyContributionsSum,
+        targetDate: goal.targetDate ?? undefined,
+        createdAt: goal.createdAt ?? new Date().toISOString(),
+        updatedAt: goal.updatedAt ?? new Date().toISOString(),
+        completedAt: goal.completedAt ?? undefined,
+      }
+    })
   }
 
   async createGoal(params: CreateGoalParams): Promise<CreateGoalResponse> {

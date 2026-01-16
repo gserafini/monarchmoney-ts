@@ -434,12 +434,13 @@ export class InvestmentsAPIImpl implements InvestmentsAPI {
       return []
     }
 
-    validateDateRange(startDate, endDate)
-    logger.debug('Fetching security performance', { securityIds: validSecurityIds, startDate, endDate })
-
     // Default to last 30 days if no dates provided
     const end = endDate || new Date().toISOString().split('T')[0]
     const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
+    // Validate after defaults are set
+    validateDateRange(start, end)
+    logger.debug('Fetching security performance', { securityIds: validSecurityIds, startDate: start, endDate: end })
 
     try {
       const response = await this.graphql.query<{

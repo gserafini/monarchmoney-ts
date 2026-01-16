@@ -1,5 +1,9 @@
 import { GraphQLClient } from '../../client/graphql'
 
+// Valid groupBy values for aggregates query (prevents GraphQL injection)
+const VALID_GROUP_BY = ['category', 'categoryGroup', 'account', 'merchant', 'month'] as const
+type ValidGroupBy = typeof VALID_GROUP_BY[number]
+
 export interface CashflowSummary {
   sumIncome: number
   sumExpense: number
@@ -109,7 +113,12 @@ export class CashflowAPIImpl implements CashflowAPI {
 
     // FIXED: Monarch's API doesn't support GraphQL aliases for aggregates queries.
     // Make separate requests for each groupBy type.
-    const makeQuery = (groupBy: string, limit?: number) => `
+    const makeQuery = (groupBy: ValidGroupBy, limit?: number) => {
+      // Validate groupBy to prevent GraphQL injection (defense in depth)
+      if (!VALID_GROUP_BY.includes(groupBy)) {
+        throw new Error(`Invalid groupBy value: ${groupBy}`)
+      }
+      return `
       query ($filters: TransactionFilterInput) {
         aggregates(filters: $filters, groupBy: ["${groupBy}"]${limit ? `, limit: ${limit}` : ''}) {
           groupBy {
@@ -129,6 +138,7 @@ export class CashflowAPIImpl implements CashflowAPI {
         }
       }
     `
+    }
 
     // Execute queries in parallel
     const [byCategory, byCategoryGroup] = await Promise.all([
