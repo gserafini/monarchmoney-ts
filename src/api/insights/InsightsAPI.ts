@@ -1,4 +1,9 @@
 import { GraphQLClient } from '../../client/graphql'
+import { logger } from '../../utils'
+
+// Valid group values for adviceItems query
+const VALID_ADVICE_GROUPS = ['objective', 'category', 'all'] as const
+type AdviceGroup = typeof VALID_ADVICE_GROUPS[number]
 
 // Advice/Insights types (from Web_GetAdviceDashboardWidget)
 export interface AdviceItemCategory {
@@ -248,11 +253,21 @@ export class InsightsAPIImpl implements InsightsAPI {
   /**
    * Get financial advice items from the dashboard
    * Uses Web_GetAdviceDashboardWidget query
+   * @param group - Filter group: 'objective', 'category', or 'all'
    */
   async getAdviceItems(group: string = 'objective'): Promise<AdviceItem[]> {
+    // Validate group parameter to prevent GraphQL injection
+    const validGroup = VALID_ADVICE_GROUPS.includes(group as AdviceGroup)
+      ? group
+      : 'objective'
+
+    if (group !== validGroup) {
+      logger.warn('Invalid advice group provided, defaulting to "objective"', { provided: group })
+    }
+
     const query = `
-      query Web_GetAdviceDashboardWidget {
-        adviceItems(group: "${group}") {
+      query Web_GetAdviceDashboardWidget($group: String!) {
+        adviceItems(group: $group) {
           id
           title
           numTasksCompleted
@@ -272,10 +287,10 @@ export class InsightsAPIImpl implements InsightsAPI {
     try {
       const result = await this.graphql.query<{
         adviceItems: AdviceItem[]
-      }>(query)
+      }>(query, { group: validGroup })
       return result.adviceItems || []
     } catch (error) {
-      console.error('Failed to get advice items:', error)
+      logger.error('Failed to get advice items:', { error })
       return []
     }
   }
@@ -312,7 +327,7 @@ export class InsightsAPIImpl implements InsightsAPI {
       }>(query)
       return result.spinwheelUser
     } catch (error) {
-      console.error('Failed to get spinwheel user:', error)
+      logger.error('Failed to get spinwheel user:', { error })
       return null
     }
   }
@@ -356,7 +371,7 @@ export class InsightsAPIImpl implements InsightsAPI {
       }>(query, { startDate, endDate })
       return result.recap
     } catch (error) {
-      console.error('Failed to get weekly recap:', error)
+      logger.error('Failed to get weekly recap:', { error })
       return null
     }
   }
@@ -701,7 +716,7 @@ export class InsightsAPIImpl implements InsightsAPI {
    * Dismiss insight - not available via API
    */
   async dismissInsight(_insightId: string): Promise<boolean> {
-    console.warn('dismissInsight is not available via the Monarch API')
+    logger.warn('dismissInsight is not available via the Monarch API')
     return false
   }
 }
