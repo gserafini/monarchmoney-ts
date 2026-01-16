@@ -57,6 +57,13 @@ export interface RecurringTransactionFilter {
   merchants?: string[]
 }
 
+export interface RecurringRemainingDue {
+  totalAmount: number
+  numItems: number
+  startDate: string
+  endDate: string
+}
+
 export interface RecurringAPI {
   /**
    * Get all recurring transaction streams
@@ -75,6 +82,16 @@ export interface RecurringAPI {
     endDate: string
     filters?: RecurringTransactionFilter
   }): Promise<RecurringTransactionItem[]>
+
+  /**
+   * Get total amount remaining due for recurring items in a date range
+   * Shows "How much do I still owe this month?"
+   */
+  getRemainingDue(options?: {
+    startDate?: string
+    endDate?: string
+    includeLiabilities?: boolean
+  }): Promise<RecurringRemainingDue>
 
   /**
    * Mark a recurring stream as not recurring (disable it)
@@ -203,6 +220,59 @@ export class RecurringAPIImpl implements RecurringAPI {
     }>(query, variables)
 
     return result.recurringTransactionItems
+  }
+
+  async getRemainingDue(options?: {
+    startDate?: string
+    endDate?: string
+    includeLiabilities?: boolean
+  }): Promise<RecurringRemainingDue> {
+    // Default to current date through end of month
+    const now = new Date()
+    const startDate = options?.startDate || now.toISOString().split('T')[0]
+    const endDate = options?.endDate || new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
+    const includeLiabilities = options?.includeLiabilities ?? true
+
+    const query = `
+      query Web_GetRecurringRemainingDue(
+        $startDate: Date!
+        $endDate: Date!
+        $includeLiabilities: Boolean
+      ) {
+        recurringRemainingDue(
+          startDate: $startDate
+          endDate: $endDate
+          includeLiabilities: $includeLiabilities
+        ) {
+          amount
+        }
+      }
+    `
+
+    try {
+      const result = await this.graphql.query<{
+        recurringRemainingDue: { amount: number }
+      }>(query, { startDate, endDate, includeLiabilities })
+
+      // Also get the items to count them
+      const items = await this.getUpcomingRecurringItems({ startDate, endDate })
+      const unpaidItems = items.filter(item => !item.isPast && !item.transactionId)
+
+      return {
+        totalAmount: result.recurringRemainingDue?.amount || 0,
+        numItems: unpaidItems.length,
+        startDate,
+        endDate
+      }
+    } catch (error) {
+      console.error('Failed to get remaining due:', error)
+      return {
+        totalAmount: 0,
+        numItems: 0,
+        startDate,
+        endDate
+      }
+    }
   }
 
   async markStreamAsNotRecurring(streamId: string): Promise<boolean> {
