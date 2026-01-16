@@ -1245,25 +1245,52 @@ export class TransactionsAPIImpl implements TransactionsAPI {
   }
 
   async getMerchants(options: GetMerchantsOptions = {}): Promise<Merchant[]> {
-    const { search, limit = 100 } = options
-
+    // Note: Monarch's merchants query doesn't support search/limit params directly
+    // Filter client-side if needed
     const query = `
-      query GetMerchants($search: String, $limit: Int) {
-        merchants(search: $search, limit: $limit) {
+      query Web_GetMerchants {
+        merchants {
           id
           name
           transactionCount
-          totalAmount
           logoUrl
+          recurringTransactionStream {
+            id
+          }
         }
       }
     `
 
     const data = await this.graphql.query<{
-      merchants: Merchant[]
-    }>(query, { search, limit })
+      merchants: Array<{
+        id: string
+        name: string
+        transactionCount: number
+        logoUrl?: string
+        recurringTransactionStream?: { id: string }
+      }>
+    }>(query, {})
 
-    return data.merchants
+    let merchants = data.merchants.map(m => ({
+      id: m.id,
+      name: m.name,
+      transactionCount: m.transactionCount,
+      totalAmount: 0, // Not available in this query
+      logoUrl: m.logoUrl,
+    }))
+
+    // Client-side filtering if search is provided
+    if (options.search) {
+      const searchLower = options.search.toLowerCase()
+      merchants = merchants.filter(m => m.name.toLowerCase().includes(searchLower))
+    }
+
+    // Client-side limit
+    if (options.limit && merchants.length > options.limit) {
+      merchants = merchants.slice(0, options.limit)
+    }
+
+    return merchants
   }
 
   async getMerchantDetails(merchantId: string): Promise<any> {
@@ -1364,41 +1391,42 @@ export class TransactionsAPIImpl implements TransactionsAPI {
 
   async getRecurringStreams(options: GetRecurringStreamsOptions = {}): Promise<any[]> {
     const {
-      includeLiabilities = true,
-      includePending = true,
-      filters
+      includeLiabilities = true
     } = options
 
+    // FIXED: Use correct field name recurringTransactionStreams (not recurringStreams)
     const query = `
-      query GetRecurringStreams(
-        $includeLiabilities: Boolean
-        $includePending: Boolean
-        $filters: JSON
-      ) {
-        recurringStreams(
+      query Web_GetRecurringStreams($includeLiabilities: Boolean) {
+        recurringTransactionStreams(
+          includePending: true
           includeLiabilities: $includeLiabilities
-          includePending: $includePending
-          filters: $filters
         ) {
-          id
-          merchant {
+          stream {
+            id
+            reviewStatus
+            frequency
+            amount
+            baseDate
+            dayOfTheMonth
+            isApproximate
             name
+            logoUrl
+            recurringType
+            merchant {
+              id
+              name
+            }
           }
-          amount
-          frequency
-          nextOccurrence
-          reviewStatus
-          confidence
-          transactionCount
         }
       }
     `
 
     const data = await this.graphql.query<{
-      recurringStreams: any[]
-    }>(query, { includeLiabilities, includePending, filters })
+      recurringTransactionStreams: Array<{ stream: any }>
+    }>(query, { includeLiabilities })
 
-    return data.recurringStreams
+    // Transform to flat array of streams
+    return (data.recurringTransactionStreams || []).map(item => item.stream)
   }
 
   async getAggregatedRecurringItems(options: GetAggregatedRecurringItemsOptions): Promise<any> {
