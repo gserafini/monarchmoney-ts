@@ -511,10 +511,10 @@ export class BudgetsAPIImpl implements BudgetsAPI {
         name: goal.name || '',
         targetAmount: goal.targetAmount ?? plannedContributionsSum,
         currentAmount: goal.currentAmount ?? monthlyContributionsSum,
-        targetDate: goal.targetDate ?? undefined,
+        targetDate: goal.targetDate,
         createdAt: goal.createdAt ?? new Date().toISOString(),
         updatedAt: goal.updatedAt ?? new Date().toISOString(),
-        completedAt: goal.completedAt ?? undefined,
+        completedAt: goal.completedAt,
       }
     })
   }
