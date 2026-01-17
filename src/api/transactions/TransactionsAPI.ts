@@ -1285,8 +1285,8 @@ export class TransactionsAPIImpl implements TransactionsAPI {
       merchants = merchants.filter(m => m.name.toLowerCase().includes(searchLower))
     }
 
-    // Client-side limit
-    if (options.limit && merchants.length > options.limit) {
+    // Client-side limit (handle limit=0 edge case)
+    if (options.limit !== undefined && merchants.length > options.limit) {
       merchants = merchants.slice(0, options.limit)
     }
 

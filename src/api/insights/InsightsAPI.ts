@@ -532,9 +532,15 @@ export class InsightsAPIImpl implements InsightsAPI {
         provider: 'Spinwheel',
         change: i < snapshots.length - 1 ? s.score - snapshots[i + 1].score : undefined
       }))
-    } catch {
+    } catch (error) {
       // 400 errors are expected when credit tracking isn't enabled
-      // Don't log - this is normal for users without credit tracking setup
+      // Only suppress 400 errors - log unexpected errors for debugging
+      const maybeError = error as { status?: number; response?: { status?: number } }
+      const status = maybeError?.status ?? maybeError?.response?.status
+
+      if (status !== 400) {
+        logger.error('Failed to get credit score snapshots:', { error })
+      }
       return []
     }
   }
