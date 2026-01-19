@@ -169,9 +169,10 @@ export interface GetRecurringTransactionsOptions {
 }
 
 export interface GetRecurringStreamsOptions {
+  /** Include liability accounts in results (default: true) */
   includeLiabilities?: boolean
-  includePending?: boolean
-  filters?: any
+  // Note: includePending is always true in the API call
+  // Note: filters is not supported by this query
 }
 
 export interface GetAggregatedRecurringItemsOptions {
@@ -1254,9 +1255,6 @@ export class TransactionsAPIImpl implements TransactionsAPI {
           name
           transactionCount
           logoUrl
-          recurringTransactionStream {
-            id
-          }
         }
       }
     `
@@ -1267,7 +1265,6 @@ export class TransactionsAPIImpl implements TransactionsAPI {
         name: string
         transactionCount: number
         logoUrl?: string
-        recurringTransactionStream?: { id: string }
       }>
     }>(query, {})
 
@@ -1389,6 +1386,13 @@ export class TransactionsAPIImpl implements TransactionsAPI {
     return data.recurringTransactions
   }
 
+  /**
+   * Get recurring transaction streams (flattened).
+   * Returns a flat array of stream objects for convenience.
+   *
+   * Note: RecurringAPI.getRecurringStreams returns `{ stream: T }[]` (wrapped),
+   * while this method returns `T[]` (unwrapped) for easier consumption.
+   */
   async getRecurringStreams(options: GetRecurringStreamsOptions = {}): Promise<any[]> {
     const {
       includeLiabilities = true
