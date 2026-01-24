@@ -168,11 +168,15 @@ export interface GetRecurringTransactionsOptions {
   endDate?: string
 }
 
+/**
+ * Options for getRecurringStreams query.
+ *
+ * Note: `includePending` is always true in the API call (not configurable).
+ * Note: `filters` is not supported by this query.
+ */
 export interface GetRecurringStreamsOptions {
   /** Include liability accounts in results (default: true) */
   includeLiabilities?: boolean
-  // Note: includePending is always true in the API call
-  // Note: filters is not supported by this query
 }
 
 export interface GetAggregatedRecurringItemsOptions {
