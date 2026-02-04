@@ -138,46 +138,103 @@ export class CategoriesAPIImpl implements CategoriesAPI {
     validateRequired({ name: data.name })
     logger.debug(`Creating transaction category: ${data.name}`)
 
+    // Use exact mutation from Monarch web app (captured 2026-02-04)
+    // Old mutation name CreateTransactionCategory with CreateTransactionCategoryInput doesn't exist in API
     const mutation = `
-      mutation CreateTransactionCategory($input: CreateTransactionCategoryInput!) {
-        createTransactionCategory(input: $input) {
+      mutation Web_CreateCategory($input: CreateCategoryInput!) {
+        createCategory(input: $input) {
+          errors {
+            ...PayloadErrorFields
+            __typename
+          }
           category {
             id
-            name
-            displayName
-            shortName
-            color
-            icon
-            order
-            isDefault
-            isDisabled
-            isSystemCategory
-            groupId
-            parentCategoryId
-            createdAt
-            updatedAt
+            ...CategoryFormFields
+            __typename
           }
-          errors {
-            field
-            message
-          }
+          __typename
         }
+      }
+
+      fragment PayloadErrorFields on PayloadError {
+        fieldErrors {
+          field
+          messages
+          __typename
+        }
+        message
+        code
+        __typename
+      }
+
+      fragment CategoryFormFields on Category {
+        id
+        order
+        name
+        icon
+        systemCategory
+        systemCategoryDisplayName
+        budgetVariability
+        excludeFromBudget
+        isSystemCategory
+        isDisabled
+        isProtected
+        group {
+          id
+          type
+          groupLevelBudgetingEnabled
+          __typename
+        }
+        rolloverPeriod {
+          id
+          startMonth
+          startingBalance
+          type
+          frequency
+          targetAmount
+          __typename
+        }
+        __typename
       }
     `
 
-    const result = await this.graphql.mutation<{
-      createTransactionCategory: {
-        category: TransactionCategory
-        errors: Array<{ field: string; message: string }>
-      }
-    }>(mutation, { input: data })
-
-    if (result.createTransactionCategory.errors?.length > 0) {
-      const errorMessages = result.createTransactionCategory.errors.map(e => e.message).join(', ')
-      throw new Error(`Failed to create category: ${errorMessages}`)
+    // Build input matching web app format:
+    // - 'group' is group ID (string), not 'groupId'
+    // - includes budgetVariability, excludeFromBudget, rollover settings
+    const input = {
+      name: data.name,
+      icon: (data as any).icon || '❓',
+      group: data.groupId || (data as any).group,
+      excludeFromBudget: (data as any).excludeFromBudget || false,
+      budgetVariability: (data as any).budgetVariability || 'flexible',
+      rolloverEnabled: (data as any).rolloverEnabled || false,
+      rolloverStartMonth: (data as any).rolloverStartMonth || new Date().toISOString().slice(0, 7) + '-01',
+      rolloverStartingBalance: (data as any).rolloverStartingBalance || 0,
+      rolloverFrequency: (data as any).rolloverFrequency || 'monthly',
     }
 
-    return result.createTransactionCategory.category
+    const result = await this.graphql.mutation<{
+      createCategory: {
+        category: TransactionCategory
+        errors: { message?: string; fieldErrors?: Array<{ field: string; messages: string[] }> } | null
+      }
+    }>(mutation, { input })
+
+    if (result.createCategory.errors) {
+      const errors = result.createCategory.errors
+      const messages: string[] = []
+      if (errors.message) messages.push(errors.message)
+      if (errors.fieldErrors) {
+        for (const fe of errors.fieldErrors) {
+          messages.push(`${fe.field}: ${fe.messages.join(', ')}`)
+        }
+      }
+      if (messages.length > 0) {
+        throw new Error(`Failed to create category: ${messages.join('; ')}`)
+      }
+    }
+
+    return result.createCategory.category
   }
 
   async updateCategory(categoryId: string, data: UpdateCategoryInput): Promise<TransactionCategory> {
@@ -226,35 +283,63 @@ export class CategoriesAPIImpl implements CategoriesAPI {
     return result.updateTransactionCategory.category
   }
 
-  async deleteCategory(categoryId: string): Promise<boolean> {
+  async deleteCategory(categoryId: string, moveToCategoryId?: string): Promise<boolean> {
     validateRequired({ categoryId })
     logger.debug(`Deleting category: ${categoryId}`)
 
+    // Use exact mutation from Monarch web app (captured 2026-02-04)
+    // Old mutation name DeleteTransactionCategory doesn't exist in API
     const mutation = `
-      mutation DeleteTransactionCategory($categoryId: ID!) {
-        deleteTransactionCategory(id: $categoryId) {
-          success
+      mutation Web_DeleteCategory($id: UUID!, $moveToCategoryId: UUID) {
+        deleteCategory(id: $id, moveToCategoryId: $moveToCategoryId) {
           errors {
-            field
-            message
+            ...PayloadErrorFields
+            __typename
           }
+          deleted
+          __typename
         }
+      }
+
+      fragment PayloadErrorFields on PayloadError {
+        fieldErrors {
+          field
+          messages
+          __typename
+        }
+        message
+        code
+        __typename
       }
     `
 
-    const result = await this.graphql.mutation<{
-      deleteTransactionCategory: {
-        success: boolean
-        errors: Array<{ field: string; message: string }>
-      }
-    }>(mutation, { categoryId })
-
-    if (result.deleteTransactionCategory.errors?.length > 0) {
-      const errorMessages = result.deleteTransactionCategory.errors.map(e => e.message).join(', ')
-      throw new Error(`Failed to delete category: ${errorMessages}`)
+    const variables: { id: string; moveToCategoryId?: string } = { id: categoryId }
+    if (moveToCategoryId) {
+      variables.moveToCategoryId = moveToCategoryId
     }
 
-    return result.deleteTransactionCategory.success
+    const result = await this.graphql.mutation<{
+      deleteCategory: {
+        deleted: boolean
+        errors: { message?: string; fieldErrors?: Array<{ field: string; messages: string[] }> } | null
+      }
+    }>(mutation, variables)
+
+    if (result.deleteCategory.errors) {
+      const errors = result.deleteCategory.errors
+      const messages: string[] = []
+      if (errors.message) messages.push(errors.message)
+      if (errors.fieldErrors) {
+        for (const fe of errors.fieldErrors) {
+          messages.push(`${fe.field}: ${fe.messages.join(', ')}`)
+        }
+      }
+      if (messages.length > 0) {
+        throw new Error(`Failed to delete category: ${messages.join('; ')}`)
+      }
+    }
+
+    return result.deleteCategory.deleted
   }
 
   async deleteCategories(categoryIds: string[]): Promise<BulkDeleteResult> {
