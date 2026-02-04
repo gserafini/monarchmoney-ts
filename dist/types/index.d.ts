@@ -147,17 +147,68 @@ export interface TransactionSplit {
 }
 export interface TransactionRule {
     id: string;
+    order?: number;
+    merchantCriteriaUseOriginalStatement?: boolean;
+    merchantCriteria?: Array<{
+        operator: string;
+        value: string;
+    }> | null;
+    originalStatementCriteria?: Array<{
+        operator: string;
+        value: string;
+    }> | null;
     merchantNameCriteria?: Array<{
         operator: string;
         value: string;
     }> | null;
-    setCategoryAction?: string | null;
-    setMerchantAction?: string | null;
+    amountCriteria?: {
+        operator: string;
+        isExpense?: boolean;
+        value?: number;
+        valueRange?: {
+            lower: number;
+            upper: number;
+        };
+    } | null;
     categoryIds?: string[] | null;
     accountIds?: string[] | null;
-    applyToExistingTransactions: boolean;
-    createdAt?: string;
-    updatedAt?: string;
+    categories?: Array<{
+        id: string;
+        name: string;
+        icon?: string;
+    }> | null;
+    accounts?: Array<{
+        id: string;
+        displayName: string;
+        icon?: string;
+        logoUrl?: string;
+    }> | null;
+    setMerchantAction?: {
+        id: string;
+        name: string;
+    } | null;
+    setCategoryAction?: {
+        id: string;
+        name: string;
+        icon?: string;
+    } | null;
+    addTagsAction?: Array<{
+        id: string;
+        name: string;
+        color?: string;
+    }> | null;
+    reviewStatusAction?: string | null;
+    splitTransactionsAction?: {
+        amountType: string;
+        splitsInfo: Array<{
+            categoryId?: string;
+            merchantName?: string;
+            amount?: number;
+        }>;
+    } | null;
+    recentApplicationCount?: number;
+    lastAppliedAt?: string;
+    applyToExistingTransactions?: boolean;
 }
 export interface TransactionRuleCondition {
     field: string;

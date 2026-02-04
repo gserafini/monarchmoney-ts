@@ -729,25 +729,94 @@ export class TransactionsAPIImpl implements TransactionsAPI {
     return result.splitTransaction.transaction
   }
 
-  // Uses simplified query that matches the web app's actual schema
+  // Exact query captured from Monarch web app (2026-02-03)
+  // Type on each rule is TransactionRuleV2
   async getTransactionRules(): Promise<TransactionRule[]> {
     const query = `
-      query Common_GetTransactionRulesList {
+      query GetTransactionRules {
         transactionRules {
           id
-          merchantNameCriteria {
-            operator
-            value
-          }
-          setCategoryAction
-          setMerchantAction
-          categoryIds
-          accountIds
-          applyToExistingTransactions
-          createdAt
-          updatedAt
+          order
+          ...TransactionRuleFields
           __typename
         }
+      }
+
+      fragment TransactionRuleFields on TransactionRuleV2 {
+        id
+        merchantCriteriaUseOriginalStatement
+        merchantCriteria {
+          operator
+          value
+          __typename
+        }
+        originalStatementCriteria {
+          operator
+          value
+          __typename
+        }
+        merchantNameCriteria {
+          operator
+          value
+          __typename
+        }
+        amountCriteria {
+          operator
+          isExpense
+          value
+          valueRange {
+            lower
+            upper
+            __typename
+          }
+          __typename
+        }
+        categoryIds
+        accountIds
+        categories {
+          id
+          name
+          icon
+          __typename
+        }
+        accounts {
+          id
+          displayName
+          icon
+          logoUrl
+          __typename
+        }
+        setMerchantAction {
+          id
+          name
+          __typename
+        }
+        setCategoryAction {
+          id
+          name
+          icon
+          __typename
+        }
+        addTagsAction {
+          id
+          name
+          color
+          __typename
+        }
+        reviewStatusAction
+        splitTransactionsAction {
+          amountType
+          splitsInfo {
+            categoryId
+            merchantName
+            amount
+            __typename
+          }
+          __typename
+        }
+        recentApplicationCount
+        lastAppliedAt
+        __typename
       }
     `
 
