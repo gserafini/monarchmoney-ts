@@ -948,16 +948,28 @@ export class TransactionsAPIImpl implements TransactionsAPI {
     return result.updateTransactionRule.transactionRule
   }
 
+  // Uses Common_DeleteTransactionRule mutation captured from Monarch web app (2026-02-03)
   async deleteTransactionRule(ruleId: string): Promise<boolean> {
     const mutation = `
-      mutation DeleteTransactionRule($ruleId: String!) {
-        deleteTransactionRule(ruleId: $ruleId) {
+      mutation Common_DeleteTransactionRule($id: ID!) {
+        deleteTransactionRule(id: $id) {
           deleted
           errors {
-            field
-            messages
+            ...PayloadErrorFields
+            __typename
           }
+          __typename
         }
+      }
+      fragment PayloadErrorFields on PayloadError {
+        fieldErrors {
+          field
+          messages
+          __typename
+        }
+        message
+        code
+        __typename
       }
     `
 
@@ -966,10 +978,11 @@ export class TransactionsAPIImpl implements TransactionsAPI {
         deleted: boolean
         errors: any[]
       }
-    }>(mutation, { ruleId })
+    }>(mutation, { id: ruleId })
 
     if (result.deleteTransactionRule.errors?.length > 0) {
-      throw new Error(`Transaction rule deletion failed: ${result.deleteTransactionRule.errors[0].messages.join(', ')}`)
+      const err = result.deleteTransactionRule.errors[0]
+      throw new Error(`Transaction rule deletion failed: ${err.message || err.fieldErrors?.map((e: any) => e.messages.join(', ')).join('; ')}`)
     }
 
     logger.info('Transaction rule deleted successfully:', ruleId)

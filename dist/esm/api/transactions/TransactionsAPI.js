@@ -625,21 +625,34 @@ export class TransactionsAPIImpl {
         logger.info('Transaction rule updated successfully:', ruleId);
         return result.updateTransactionRule.transactionRule;
     }
+    // Uses Common_DeleteTransactionRule mutation captured from Monarch web app (2026-02-03)
     async deleteTransactionRule(ruleId) {
         const mutation = `
-      mutation DeleteTransactionRule($ruleId: String!) {
-        deleteTransactionRule(ruleId: $ruleId) {
+      mutation Common_DeleteTransactionRule($id: ID!) {
+        deleteTransactionRule(id: $id) {
           deleted
           errors {
-            field
-            messages
+            ...PayloadErrorFields
+            __typename
           }
+          __typename
         }
       }
+      fragment PayloadErrorFields on PayloadError {
+        fieldErrors {
+          field
+          messages
+          __typename
+        }
+        message
+        code
+        __typename
+      }
     `;
-        const result = await this.graphql.mutation(mutation, { ruleId });
+        const result = await this.graphql.mutation(mutation, { id: ruleId });
         if (result.deleteTransactionRule.errors?.length > 0) {
-            throw new Error(`Transaction rule deletion failed: ${result.deleteTransactionRule.errors[0].messages.join(', ')}`);
+            const err = result.deleteTransactionRule.errors[0];
+            throw new Error(`Transaction rule deletion failed: ${err.message || err.fieldErrors?.map((e) => e.messages.join(', ')).join('; ')}`);
         }
         logger.info('Transaction rule deleted successfully:', ruleId);
         return result.deleteTransactionRule.deleted;
