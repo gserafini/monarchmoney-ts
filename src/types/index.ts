@@ -173,15 +173,20 @@ export interface TransactionSplit {
   notes?: string
 }
 
+// Matches Monarch's actual TransactionRule shape from the API
 export interface TransactionRule {
   id: string
-  conditions: TransactionRuleCondition[]
-  actions: TransactionRuleAction[]
+  merchantNameCriteria?: Array<{ operator: string; value: string }> | null
+  setCategoryAction?: string | null
+  setMerchantAction?: string | null
+  categoryIds?: string[] | null
+  accountIds?: string[] | null
   applyToExistingTransactions: boolean
-  createdAt: string
-  updatedAt: string
+  createdAt?: string
+  updatedAt?: string
 }
 
+// Legacy types kept for backward compatibility
 export interface TransactionRuleCondition {
   field: string
   operation: string

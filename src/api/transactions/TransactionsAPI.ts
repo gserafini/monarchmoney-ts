@@ -102,11 +102,14 @@ export interface CreateTransactionInput {
 
 export interface UpdateTransactionInput {
   merchant?: string
+  merchantName?: string  // alias for merchant (Monarch API field name)
   amount?: number
   date?: string
   categoryId?: string
+  category?: string      // alias for categoryId (Monarch API field name)
   notes?: string
   hideFromReports?: boolean
+  isHidden?: boolean     // alias for hideFromReports
 }
 
 export interface TransactionSplit {
@@ -114,11 +117,25 @@ export interface TransactionSplit {
   categoryId?: string
 }
 
+// Matches Monarch's actual CreateTransactionRuleInput GraphQL type
+// Captured from web app 2026-02-03
 export interface CreateTransactionRuleInput {
-  name: string
-  conditions: RuleCondition[]
-  actions: RuleAction[]
-  priority?: number
+  merchantNameCriteria?: Array<{ operator: string; value: string }> | null
+  setCategoryAction?: string | null
+  categoryIds?: string[] | null
+  accountIds?: string[] | null
+  merchantCriteria?: any | null
+  amountCriteria?: any | null
+  originalStatementCriteria?: any | null
+  merchantCriteriaUseOriginalStatement?: boolean
+  addTagsAction?: any | null
+  splitTransactionsAction?: any | null
+  setMerchantAction?: string | null
+  linkGoalAction?: string | null
+  linkSavingsGoalAction?: string | null
+  reviewStatusAction?: string | null
+  actionSetBusinessEntity?: any | null
+  applyToExistingTransactions?: boolean
 }
 
 export interface UpdateTransactionRuleInput {
@@ -482,53 +499,54 @@ export class TransactionsAPIImpl implements TransactionsAPI {
     return result.createTransaction.transaction
   }
 
+  // Uses Web_TransactionDrawerUpdateTransaction mutation captured from Monarch web app (2026-02-03)
+  // Input type: UpdateTransactionMutationInput! (NOT individual parameters)
   async updateTransaction(transactionId: string, data: UpdateTransactionInput): Promise<Transaction> {
     validateTransactionId(transactionId)
 
+    // Build input matching Monarch's UpdateTransactionMutationInput
+    const input: Record<string, any> = { id: transactionId }
+    // Support both field names: library convention and Monarch API names
+    const categoryId = data.category ?? data.categoryId
+    const merchantName = data.merchantName ?? data.merchant
+    const hideFromReports = data.hideFromReports ?? data.isHidden
+    if (categoryId !== undefined) input.category = categoryId
+    if (merchantName !== undefined) input.merchantName = merchantName
+    if (data.notes !== undefined) input.notes = data.notes
+    if (data.date !== undefined) input.date = data.date
+    if (data.amount !== undefined) input.amount = data.amount
+    if (hideFromReports !== undefined) input.hideFromReports = hideFromReports
+
     const mutation = `
-      mutation UpdateTransaction(
-        $transactionId: String!
-        $merchant: String
-        $amount: Float
-        $date: String
-        $categoryId: String
-        $notes: String
-        $hideFromReports: Boolean
-      ) {
-        updateTransaction(
-          transactionId: $transactionId
-          merchant: $merchant
-          amount: $amount
-          date: $date
-          categoryId: $categoryId
-          notes: $notes
-          hideFromReports: $hideFromReports
-        ) {
+      mutation Web_TransactionDrawerUpdateTransaction($input: UpdateTransactionMutationInput!) {
+        updateTransaction(input: $input) {
           transaction {
             id
             amount
             date
-            merchant {
-              name
-            }
             category {
               id
               name
-              icon
-              color
             }
-            account {
+            merchant {
               id
-              displayName
+              name
             }
             notes
-            isHide
+            hideFromReports
           }
           errors {
-            field
-            messages
+            ...PayloadErrorFields
           }
         }
+      }
+      fragment PayloadErrorFields on PayloadError {
+        fieldErrors {
+          field
+          messages
+        }
+        message
+        code
       }
     `
 
@@ -537,10 +555,12 @@ export class TransactionsAPIImpl implements TransactionsAPI {
         transaction: Transaction
         errors: any[]
       }
-    }>(mutation, { transactionId, ...data })
+    }>(mutation, { input })
 
     if (result.updateTransaction.errors?.length > 0) {
-      throw new Error(`Transaction update failed: ${result.updateTransaction.errors[0].messages.join(', ')}`)
+      const errors = result.updateTransaction.errors
+      const msg = errors[0]?.message || errors[0]?.fieldErrors?.[0]?.messages?.join(', ') || 'Unknown error'
+      throw new Error(`Transaction update failed: ${msg}`)
     }
 
     logger.info('Transaction updated successfully:', transactionId)
@@ -709,25 +729,24 @@ export class TransactionsAPIImpl implements TransactionsAPI {
     return result.splitTransaction.transaction
   }
 
+  // Uses simplified query that matches the web app's actual schema
   async getTransactionRules(): Promise<TransactionRule[]> {
     const query = `
-      query GetTransactionRules {
+      query Common_GetTransactionRulesList {
         transactionRules {
           id
-          name
-          isEnabled
-          priority
-          conditions {
-            field
+          merchantNameCriteria {
             operator
             value
           }
-          actions {
-            type
-            value
-          }
+          setCategoryAction
+          setMerchantAction
+          categoryIds
+          accountIds
+          applyToExistingTransactions
           createdAt
           updatedAt
+          __typename
         }
       }
     `
@@ -736,62 +755,71 @@ export class TransactionsAPIImpl implements TransactionsAPI {
       transactionRules: TransactionRule[]
     }>(query)
 
-    return data.transactionRules
+    return data.transactionRules || []
   }
 
+  // Uses Common_CreateTransactionRuleMutationV2 mutation captured from Monarch web app (2026-02-03)
+  // Input type: CreateTransactionRuleInput! (NOT individual name/conditions/actions params)
+  // Key differences from original:
+  //   - merchantNameCriteria (NOT merchantCriteria), operator lowercase "contains"
+  //   - setCategoryAction is a plain category ID string (NOT {id: ...})
   async createTransactionRule(data: CreateTransactionRuleInput): Promise<TransactionRule> {
-    const { name, conditions, actions, priority } = data
+    const input: CreateTransactionRuleInput = {
+      categoryIds: data.categoryIds ?? null,
+      accountIds: data.accountIds ?? null,
+      merchantCriteria: data.merchantCriteria ?? null,
+      amountCriteria: data.amountCriteria ?? null,
+      merchantNameCriteria: data.merchantNameCriteria ?? null,
+      originalStatementCriteria: data.originalStatementCriteria ?? null,
+      merchantCriteriaUseOriginalStatement: data.merchantCriteriaUseOriginalStatement ?? false,
+      addTagsAction: data.addTagsAction ?? null,
+      splitTransactionsAction: data.splitTransactionsAction ?? null,
+      setMerchantAction: data.setMerchantAction ?? null,
+      setCategoryAction: data.setCategoryAction ?? null,
+      linkGoalAction: data.linkGoalAction ?? null,
+      linkSavingsGoalAction: data.linkSavingsGoalAction ?? null,
+      reviewStatusAction: data.reviewStatusAction ?? null,
+      actionSetBusinessEntity: data.actionSetBusinessEntity ?? null,
+      applyToExistingTransactions: data.applyToExistingTransactions ?? false,
+    }
 
     const mutation = `
-      mutation CreateTransactionRule(
-        $name: String!
-        $conditions: [RuleConditionInput!]!
-        $actions: [RuleActionInput!]!
-        $priority: Int
-      ) {
-        createTransactionRule(
-          name: $name
-          conditions: $conditions
-          actions: $actions
-          priority: $priority
-        ) {
-          transactionRule {
-            id
-            name
-            isEnabled
-            priority
-            conditions {
-              field
-              operator
-              value
-            }
-            actions {
-              type
-              value
-            }
-            createdAt
-          }
+      mutation Common_CreateTransactionRuleMutationV2($input: CreateTransactionRuleInput!) {
+        createTransactionRuleV2(input: $input) {
           errors {
-            field
-            messages
+            ...PayloadErrorFields
+            __typename
           }
+          __typename
         }
+      }
+      fragment PayloadErrorFields on PayloadError {
+        fieldErrors {
+          field
+          messages
+          __typename
+        }
+        message
+        code
+        __typename
       }
     `
 
     const result = await this.graphql.mutation<{
-      createTransactionRule: {
-        transactionRule: TransactionRule
+      createTransactionRuleV2: {
         errors: any[]
       }
-    }>(mutation, { name, conditions, actions, priority })
+    }>(mutation, { input })
 
-    if (result.createTransactionRule.errors?.length > 0) {
-      throw new Error(`Transaction rule creation failed: ${result.createTransactionRule.errors[0].messages.join(', ')}`)
+    if (result.createTransactionRuleV2?.errors?.length > 0) {
+      const errors = result.createTransactionRuleV2.errors
+      const msg = errors[0]?.message || errors[0]?.fieldErrors?.[0]?.messages?.join(', ') || 'Unknown error'
+      throw new Error(`Transaction rule creation failed: ${msg}`)
     }
 
-    logger.info('Transaction rule created successfully:', result.createTransactionRule.transactionRule.id)
-    return result.createTransactionRule.transactionRule
+    logger.info('Transaction rule created successfully')
+    // V2 mutation doesn't return the rule object, return a minimal representation
+    return { id: 'created', applyToExistingTransactions: data.applyToExistingTransactions ?? false } as TransactionRule
   }
 
   async updateTransactionRule(ruleId: string, data: UpdateTransactionRuleInput): Promise<TransactionRule> {
