@@ -25,6 +25,7 @@
     "format": "prettier --write src/**/*.ts",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf dist coverage",
+    "prepare": "npm run build",
     "prepublishOnly": "npm run clean && npm run lint -- --max-warnings 20 && npm run type-check && npm run build"
   },
   "keywords": [
@@ -60,7 +61,7 @@
   "devDependencies": {
     "@types/crypto-js": "^4.2.1",
     "@types/jest": "^29.5.8",
-    "@types/node": "^20.10.0",
+    "@types/node": "^20.19.31",
     "@typescript-eslint/eslint-plugin": "^6.13.1",
     "@typescript-eslint/parser": "^6.13.1",
     "eslint": "^8.54.0",
