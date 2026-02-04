@@ -6,7 +6,7 @@ yarn-error.log*
 yarn.lock
 
 # Build outputs
-dist/
+# dist/ is committed for git URL installs (npm doesn't run build for git deps)
 *.tsbuildinfo
 
 # Environment variables and secrets

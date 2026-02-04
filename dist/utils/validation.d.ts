@@ -1,0 +1,27 @@
+export declare function validateRequired(params: Record<string, unknown>): void;
+export declare function validateEmail(email: string): void;
+export declare function validatePassword(password: string): void;
+export declare function validateMFA(code: string): void;
+export declare function validateLoginCredentials(email: string, password: string): void;
+export declare function validateMFACredentials(email: string, password: string, code: string): void;
+export declare function validateAccountId(accountId: string): void;
+export declare function validateTransactionId(transactionId: string): void;
+export declare function validateAmount(amount: number): void;
+export declare function validateDate(date: string): void;
+export declare function validateDateRange(startDate?: string, endDate?: string): void;
+export declare function validateLimit(limit?: number): void;
+export declare function validateOffset(offset?: number): void;
+export declare function validatePagination(limit?: number, offset?: number): void;
+export declare function validateArrayIds(ids?: string[], fieldName?: string): void;
+export declare function validateTicker(ticker: string): void;
+export declare function validateQuantity(quantity: number): void;
+export declare function validateMerchantName(merchantName: string): void;
+export declare function validateCategoryName(name: string): void;
+export declare function validateGoalName(name: string): void;
+export declare function validateTargetAmount(amount: number): void;
+export declare function isValidUUID(uuid: string): boolean;
+export declare function sanitizeString(input: string): string;
+export declare function parseAmount(amount: string | number): number;
+export declare function formatDate(date: Date): string;
+export declare function parseDate(date: string | Date): Date;
+//# sourceMappingURL=validation.d.ts.map
