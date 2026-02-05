@@ -30,6 +30,10 @@ This security measure will automatically clear after successful web login.
      * Wait for user to confirm they've completed web login
      */
     static async waitForUserConfirmation() {
+        // CRITICAL: Check if stdin is a TTY to prevent hanging in non-interactive environments
+        if (!process.stdin.isTTY) {
+            throw new Error('CAPTCHA verification required but stdin is not a TTY. Cannot prompt for user input in non-interactive environment. Please login via web browser first.');
+        }
         const rl = readline.createInterface({
             input: process.stdin,
             output: process.stdout

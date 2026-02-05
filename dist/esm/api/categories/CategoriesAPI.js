@@ -88,38 +88,95 @@ export class CategoriesAPIImpl {
     async createCategory(data) {
         validateRequired({ name: data.name });
         logger.debug(`Creating transaction category: ${data.name}`);
+        // Use exact mutation from Monarch web app (captured 2026-02-04)
+        // Old mutation name CreateTransactionCategory with CreateTransactionCategoryInput doesn't exist in API
         const mutation = `
-      mutation CreateTransactionCategory($input: CreateTransactionCategoryInput!) {
-        createTransactionCategory(input: $input) {
+      mutation Web_CreateCategory($input: CreateCategoryInput!) {
+        createCategory(input: $input) {
+          errors {
+            ...PayloadErrorFields
+            __typename
+          }
           category {
             id
-            name
-            displayName
-            shortName
-            color
-            icon
-            order
-            isDefault
-            isDisabled
-            isSystemCategory
-            groupId
-            parentCategoryId
-            createdAt
-            updatedAt
+            ...CategoryFormFields
+            __typename
           }
-          errors {
-            field
-            message
-          }
+          __typename
         }
       }
-    `;
-        const result = await this.graphql.mutation(mutation, { input: data });
-        if (result.createTransactionCategory.errors?.length > 0) {
-            const errorMessages = result.createTransactionCategory.errors.map(e => e.message).join(', ');
-            throw new Error(`Failed to create category: ${errorMessages}`);
+
+      fragment PayloadErrorFields on PayloadError {
+        fieldErrors {
+          field
+          messages
+          __typename
         }
-        return result.createTransactionCategory.category;
+        message
+        code
+        __typename
+      }
+
+      fragment CategoryFormFields on Category {
+        id
+        order
+        name
+        icon
+        systemCategory
+        systemCategoryDisplayName
+        budgetVariability
+        excludeFromBudget
+        isSystemCategory
+        isDisabled
+        isProtected
+        group {
+          id
+          type
+          groupLevelBudgetingEnabled
+          __typename
+        }
+        rolloverPeriod {
+          id
+          startMonth
+          startingBalance
+          type
+          frequency
+          targetAmount
+          __typename
+        }
+        __typename
+      }
+    `;
+        // Build input matching web app format:
+        // - 'group' is group ID (string), not 'groupId'
+        // - includes budgetVariability, excludeFromBudget, rollover settings
+        const input = {
+            name: data.name,
+            icon: data.icon || '❓',
+            group: data.groupId || data.group,
+            excludeFromBudget: data.excludeFromBudget || false,
+            budgetVariability: data.budgetVariability || 'flexible',
+            rolloverEnabled: data.rolloverEnabled || false,
+            rolloverStartMonth: data.rolloverStartMonth || new Date().toISOString().slice(0, 7) + '-01',
+            rolloverStartingBalance: data.rolloverStartingBalance || 0,
+            rolloverFrequency: data.rolloverFrequency || 'monthly',
+        };
+        const result = await this.graphql.mutation(mutation, { input });
+        if (result.createCategory.errors) {
+            const errors = result.createCategory.errors;
+            const messages = [];
+            if (errors.message)
+                messages.push(errors.message);
+            if (errors.fieldErrors) {
+                for (const fe of errors.fieldErrors) {
+                    messages.push(`${fe.field}: ${fe.messages.join(', ')}`);
+                }
+            }
+            if (messages.length > 0) {
+                throw new Error(`Failed to create category: ${messages.join('; ')}`);
+            }
+        }
+        return result.createCategory.category;
     }
     async updateCategory(categoryId, data) {
         validateRequired({ categoryId });
@@ -157,26 +214,54 @@ export class CategoriesAPIImpl {
         }
         return result.updateTransactionCategory.category;
     }
-    async deleteCategory(categoryId) {
+    async deleteCategory(categoryId, moveToCategoryId) {
         validateRequired({ categoryId });
         logger.debug(`Deleting category: ${categoryId}`);
+        // Use exact mutation from Monarch web app (captured 2026-02-04)
+        // Old mutation name DeleteTransactionCategory doesn't exist in API
         const mutation = `
-      mutation DeleteTransactionCategory($categoryId: ID!) {
-        deleteTransactionCategory(id: $categoryId) {
-          success
+      mutation Web_DeleteCategory($id: UUID!, $moveToCategoryId: UUID) {
+        deleteCategory(id: $id, moveToCategoryId: $moveToCategoryId) {
           errors {
-            field
-            message
+            ...PayloadErrorFields
+            __typename
           }
+          deleted
+          __typename
         }
       }
-    `;
-        const result = await this.graphql.mutation(mutation, { categoryId });
-        if (result.deleteTransactionCategory.errors?.length > 0) {
-            const errorMessages = result.deleteTransactionCategory.errors.map(e => e.message).join(', ');
-            throw new Error(`Failed to delete category: ${errorMessages}`);
+
+      fragment PayloadErrorFields on PayloadError {
+        fieldErrors {
+          field
+          messages
+          __typename
         }
-        return result.deleteTransactionCategory.success;
+        message
+        code
+        __typename
+      }
+    `;
+        const variables = { id: categoryId };
+        if (moveToCategoryId) {
+            variables.moveToCategoryId = moveToCategoryId;
+        }
+        const result = await this.graphql.mutation(mutation, variables);
+        if (result.deleteCategory.errors) {
+            const errors = result.deleteCategory.errors;
+            const messages = [];
+            if (errors.message)
+                messages.push(errors.message);
+            if (errors.fieldErrors) {
+                for (const fe of errors.fieldErrors) {
+                    messages.push(`${fe.field}: ${fe.messages.join(', ')}`);
+                }
+            }
+            if (messages.length > 0) {
+                throw new Error(`Failed to delete category: ${messages.join('; ')}`);
+            }
+        }
+        return result.deleteCategory.deleted;
     }
     async deleteCategories(categoryIds) {
         validateRequired({ categoryIds });

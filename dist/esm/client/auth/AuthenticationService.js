@@ -113,6 +113,10 @@ export class AuthenticationService {
             logger.info('Using saved session');
             return;
         }
+        // CRITICAL: Check if stdin is a TTY to prevent hanging in non-interactive environments
+        if (!process.stdin.isTTY) {
+            throw new MonarchAuthError('Interactive login requires a TTY but stdin is not a TTY. Cannot prompt for credentials in non-interactive environment. Use login() with email/password options instead, or set environment variables.');
+        }
         const rl = readline.createInterface({
             input: process.stdin,
             output: process.stdout
@@ -429,7 +433,12 @@ export class AuthenticationService {
         });
     }
     promptPassword(_rl, question) {
-        return new Promise(resolve => {
+        return new Promise((resolve, reject) => {
+            // CRITICAL: Check if stdin is a TTY to prevent hanging in non-interactive environments
+            if (!process.stdin.isTTY) {
+                reject(new MonarchAuthError('Password prompt requires a TTY but stdin is not a TTY. Cannot prompt for password in non-interactive environment.'));
+                return;
+            }
             process.stdout.write(question);
             // Hide input
             const stdin = process.stdin;

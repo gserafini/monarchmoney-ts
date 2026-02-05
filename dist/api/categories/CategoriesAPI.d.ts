@@ -25,7 +25,7 @@ export declare class CategoriesAPIImpl implements CategoriesAPI {
     getCategoryById(categoryId: string): Promise<TransactionCategory>;
     createCategory(data: CreateCategoryInput): Promise<TransactionCategory>;
     updateCategory(categoryId: string, data: UpdateCategoryInput): Promise<TransactionCategory>;
-    deleteCategory(categoryId: string): Promise<boolean>;
+    deleteCategory(categoryId: string, moveToCategoryId?: string): Promise<boolean>;
     deleteCategories(categoryIds: string[]): Promise<BulkDeleteResult>;
     getCategoryGroups(): Promise<CategoryGroup[]>;
     getCategoryGroupById(groupId: string): Promise<CategoryGroup>;
