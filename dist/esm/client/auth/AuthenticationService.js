@@ -379,7 +379,12 @@ export class AuthenticationService {
                 supports_mfa: true,
                 supports_email_otp: true,
                 supports_recaptcha: true,
-                totp: code
+                // Email OTP codes are 6-digit numeric → use "email_otp" field
+                // TOTP authenticator codes → use "totp" field
+                // Source: keithah/monarchmoney-enhanced authentication_service.py
+                ...(code.length === 6 && /^\d{6}$/.test(code)
+                    ? { email_otp: code }
+                    : { totp: code })
             })
         });
         // Get response text once to avoid consuming the stream multiple times
